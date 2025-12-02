@@ -1,5 +1,8 @@
 using System;
 using System.Linq.Expressions;
+using System.Reflection;
+using System.Collections.Generic;
+using Cartographer.Core.Configuration.Naming;
 
 namespace Cartographer.Core.Abstractions;
 
@@ -8,6 +11,21 @@ namespace Cartographer.Core.Abstractions;
 /// </summary>
 public interface IMapperConfigurationExpression
 {
+    /// <summary>
+    /// Naming convention applied to source members when matching.
+    /// </summary>
+    INamingConvention SourceNamingConvention { get; set; }
+
+    /// <summary>
+    /// Naming convention applied to destination members when matching.
+    /// </summary>
+    INamingConvention DestinationNamingConvention { get; set; }
+
+    /// <summary>
+    /// Additional strategies for matching members beyond naming conventions.
+    /// </summary>
+    IList<Func<PropertyInfo, PropertyInfo, bool>> MemberMatchingStrategies { get; }
+
     /// <summary>
     /// Creates or retrieves a type map between <typeparamref name="TSource"/> and <typeparamref name="TDestination"/>.
     /// </summary>

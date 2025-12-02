@@ -1,5 +1,6 @@
 using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration;
+using Cartographer.Core.Configuration.Naming;
 using FluentAssertions;
 
 namespace Cartographer.Tests;
@@ -142,6 +143,38 @@ public class MapperTests
         dest.Name.Should().Be("Existing");
         dest.Label.Should().Be("Label: Existing");
     }
+
+    [Fact]
+    public void Naming_convention_maps_snake_to_pascal()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.SourceNamingConvention = new SnakeCaseNamingConvention();
+            cfg.DestinationNamingConvention = new PascalCaseNamingConvention();
+            cfg.CreateMap<SnakeSource, PascalDestination>();
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<PascalDestination>(new SnakeSource { first_name = "Casey", last_name = "Jones" });
+
+        dest.FirstName.Should().Be("Casey");
+        dest.LastName.Should().Be("Jones");
+    }
+
+    [Fact]
+    public void Member_matching_strategy_can_override_names()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.MemberMatchingStrategies.Add((src, dest) => src.Name == "CustomerName" && dest.Name == "Name");
+            cfg.CreateMap<SpecialSource, SpecialDestination>();
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<SpecialDestination>(new SpecialSource { CustomerName = "Custom" });
+
+        dest.Name.Should().Be("Custom");
+    }
 }
 
 file static class MapperTestExtensions
@@ -199,6 +232,28 @@ file class DemoDestination
     public string? Conditional2 { get; set; }
     public bool BeforeCalled { get; set; }
     public bool AfterCalled { get; set; }
+}
+
+file class SnakeSource
+{
+    public string first_name { get; set; } = string.Empty;
+    public string last_name { get; set; } = string.Empty;
+}
+
+file class PascalDestination
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+}
+
+file class SpecialSource
+{
+    public string CustomerName { get; set; } = string.Empty;
+}
+
+file class SpecialDestination
+{
+    public string Name { get; set; } = string.Empty;
 }
 
 file class DemoChild

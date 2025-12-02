@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Cartographer.Core.Abstractions;
+using Cartographer.Core.Configuration.Naming;
 using Cartographer.Core.Runtime;
 
 namespace Cartographer.Core.Configuration;
@@ -10,6 +11,10 @@ namespace Cartographer.Core.Configuration;
 public class MapperConfiguration : IMapperConfigurationExpression
 {
     private readonly Dictionary<(Type, Type), TypeMap> _maps = new();
+
+    public INamingConvention SourceNamingConvention { get; set; } = new IdentityNamingConvention();
+    public INamingConvention DestinationNamingConvention { get; set; } = new IdentityNamingConvention();
+    public IList<Func<PropertyInfo, PropertyInfo, bool>> MemberMatchingStrategies { get; } = new List<Func<PropertyInfo, PropertyInfo, bool>>();
 
     /// <summary>
     /// Creates a mapper configuration using the provided configuration action.
@@ -114,6 +119,8 @@ public class MapperConfiguration : IMapperConfigurationExpression
                 .Where(p => p.CanRead)
                 .ToDictionary(p => p.Name, p => p, StringComparer.Ordinal);
 
+            var normalizedSource = srcProps.Values.ToDictionary(p => SourceNamingConvention.Normalize(p.Name), p => p, StringComparer.Ordinal);
+
             foreach (var destProp in destProps)
             {
                 var propertyMap = map.PropertyMaps.FirstOrDefault(p => p.DestinationProperty == destProp);
@@ -128,7 +135,14 @@ public class MapperConfiguration : IMapperConfigurationExpression
                     continue;
                 }
 
-                if (srcProps.TryGetValue(destProp.Name, out var sourceProp))
+                if (TryMatchByStrategy(destProp, srcProps.Values, out var strategyProp))
+                {
+                    propertyMap.SourceProperty = strategyProp;
+                    continue;
+                }
+
+                var normalizedDestName = DestinationNamingConvention.Normalize(destProp.Name);
+                if (normalizedSource.TryGetValue(normalizedDestName, out var sourceProp))
                 {
                     propertyMap.SourceProperty = sourceProp;
                 }
@@ -184,5 +198,23 @@ public class MapperConfiguration : IMapperConfigurationExpression
         }
 
         return null;
+    }
+
+    private bool TryMatchByStrategy(PropertyInfo destProp, IEnumerable<PropertyInfo> sourceProps, out PropertyInfo? matched)
+    {
+        foreach (var srcProp in sourceProps)
+        {
+            foreach (var strategy in MemberMatchingStrategies)
+            {
+                if (strategy(srcProp, destProp))
+                {
+                    matched = srcProp;
+                    return true;
+                }
+            }
+        }
+
+        matched = null;
+        return false;
     }
 }

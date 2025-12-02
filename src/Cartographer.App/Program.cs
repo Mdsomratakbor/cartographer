@@ -1,6 +1,7 @@
 ﻿using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration;
 using Cartographer.Core.DependencyInjection;
+using Cartographer.Core.Configuration.Naming;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cartographer.App;
@@ -12,7 +13,7 @@ internal class Program
         using var provider = BuildServiceProvider();
         var mapper = provider.GetRequiredService<IMapper>();
         var configuration = provider.GetRequiredService<MapperConfiguration>();
-       // configuration.AssertConfigurationIsValid();
+        configuration.AssertConfigurationIsValid();
 
         var user = new User
         {
@@ -21,6 +22,7 @@ internal class Program
             LastName = "Lovelace",
             Email = "ada@example.com",
             Address = new Address { Line1 = "123 Logic Way", City = "London" },
+            postal_code = "90210",
             Orders = new[]
             {
                 new Order { Sku = "ABC-001", Quantity = 2 },
@@ -47,8 +49,13 @@ internal class Program
     {
         var services = new ServiceCollection();
 
-        // Registers Cartographer using profile scanning in this assembly
-        services.AddCartographer(typeof(UserProfile).Assembly);
+        // Registers Cartographer with naming conventions and profile scanning in this assembly
+        services.AddCartographer(cfg =>
+        {
+            cfg.SourceNamingConvention = new SnakeCaseNamingConvention();
+            cfg.DestinationNamingConvention = new PascalCaseNamingConvention();
+            new UserProfile().Apply(cfg);
+        });
 
         return services.BuildServiceProvider();
     }
@@ -63,6 +70,7 @@ internal class User
     public Address? Address { get; set; }
     public IEnumerable<Order> Orders { get; set; } = Array.Empty<Order>();
     public bool IncludeNote { get; set; } = true;
+    public string postal_code { get; set; } = string.Empty;
 }
 
 internal class Address
@@ -88,6 +96,7 @@ internal class UserDto
     public string? OptionalNote2 { get; set; }
     public bool BeforeHookCalled { get; set; }
     public bool AfterHookCalled { get; set; }
+    public string PostalCode { get; set; } = string.Empty;
 }
 
 internal class AddressDto
