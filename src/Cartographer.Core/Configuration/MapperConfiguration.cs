@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration.Naming;
+using Cartographer.Core.Configuration.Attributes;
 using Cartographer.Core.Runtime;
 
 namespace Cartographer.Core.Configuration;
@@ -135,6 +136,11 @@ public class MapperConfiguration : IMapperConfigurationExpression
                     continue;
                 }
 
+                if (TryApplyAttributes(propertyMap, srcProps))
+                {
+                    continue;
+                }
+
                 if (TryMatchByStrategy(destProp, srcProps.Values, out var strategyProp))
                 {
                     propertyMap.SourceProperty = strategyProp;
@@ -215,6 +221,29 @@ public class MapperConfiguration : IMapperConfigurationExpression
         }
 
         matched = null;
+        return false;
+    }
+
+    private bool TryApplyAttributes(PropertyMap propertyMap, IDictionary<string, PropertyInfo> srcProps)
+    {
+        var destProp = propertyMap.DestinationProperty;
+        var ignoreAttr = destProp.GetCustomAttribute<IgnoreMapAttribute>();
+        if (ignoreAttr != null)
+        {
+            propertyMap.Ignore = true;
+            return true;
+        }
+
+        var mapFrom = destProp.GetCustomAttribute<MapFromAttribute>();
+        if (mapFrom != null)
+        {
+            if (srcProps.TryGetValue(mapFrom.SourceMember, out var sourceProp))
+            {
+                propertyMap.SourceProperty = sourceProp;
+            }
+            return true;
+        }
+
         return false;
     }
 }

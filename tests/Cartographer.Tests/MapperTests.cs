@@ -2,6 +2,7 @@ using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration;
 using Cartographer.Core.Configuration.Naming;
 using Cartographer.Core.Configuration.Converters;
+using Cartographer.Core.Configuration.Attributes;
 using FluentAssertions;
 
 namespace Cartographer.Tests;
@@ -207,6 +208,21 @@ public class MapperTests
         dest.Value.Should().Be("ABC");
         dest.Length.Should().Be(3);
     }
+
+    [Fact]
+    public void Attribute_based_MapFrom_and_Ignore_are_applied()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<AttrSource, AttrDestination>();
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<AttrDestination>(new AttrSource { Original = "Hello", Unused = "Bye" });
+
+        dest.Renamed.Should().Be("Hello");
+        dest.Unused.Should().BeNull();
+    }
 }
 
 file static class MapperTestExtensions
@@ -322,6 +338,21 @@ file class CustomTypeConverter : ITypeConverter<ConvertibleSource, ConvertibleDe
             Value = source.Value.ToUpperInvariant(),
             Length = source.Value.Length
         };
+}
+
+file class AttrSource
+{
+    public string Original { get; set; } = string.Empty;
+    public string Unused { get; set; } = string.Empty;
+}
+
+file class AttrDestination
+{
+    [MapFrom("Original")]
+    public string Renamed { get; set; } = string.Empty;
+
+    [IgnoreMap]
+    public string? Unused { get; set; }
 }
 
 file class DemoChild

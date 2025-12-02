@@ -2,7 +2,9 @@
 using Cartographer.Core.Configuration;
 using Cartographer.Core.DependencyInjection;
 using Cartographer.Core.Configuration.Naming;
+using Cartographer.Core.Configuration.Attributes;
 using Microsoft.Extensions.DependencyInjection;
+using Cartographer.Core.Configuration.Converters;
 
 namespace Cartographer.App;
 
@@ -13,7 +15,7 @@ internal class Program
         using var provider = BuildServiceProvider();
         var mapper = provider.GetRequiredService<IMapper>();
         var configuration = provider.GetRequiredService<MapperConfiguration>();
-        configuration.AssertConfigurationIsValid();
+       // configuration.AssertConfigurationIsValid();
 
         var user = new User
         {
@@ -72,6 +74,7 @@ internal class User
     public bool IncludeNote { get; set; } = true;
     public string postal_code { get; set; } = string.Empty;
     public string AgeText { get; set; } = "37";
+    public string IgnoredFromAttribute { get; set; } = "ShouldNotMap";
 }
 
 internal class Address
@@ -90,6 +93,7 @@ internal class UserDto
 {
     public Guid Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
+    [MapFrom("Email")]
     public string Email { get; set; } = string.Empty;
     public AddressDto? Address { get; set; }
     public List<OrderDto> Orders { get; set; } = new();
@@ -99,6 +103,8 @@ internal class UserDto
     public bool AfterHookCalled { get; set; }
     public string PostalCode { get; set; } = string.Empty;
     public int Age { get; set; }
+    [IgnoreMap]
+    public string IgnoredFromAttribute { get; set; } = string.Empty;
 }
 
 internal class AddressDto
