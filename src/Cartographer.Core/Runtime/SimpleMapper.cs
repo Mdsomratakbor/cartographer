@@ -27,34 +27,11 @@ public class SimpleMapper : IMapper
             throw new InvalidOperationException($"No mapping exists from {sourceType} to {destinationType}");
         }
 
-        var dest = Activator.CreateInstance(destinationType) ?? throw new InvalidOperationException($"Cannot create {destinationType}");
-
-        foreach (var propertyMap in map.PropertyMaps)
+        if (map.MappingFunc == null)
         {
-            if (propertyMap.Ignore)
-            {
-                continue;
-            }
-
-            object? value = null;
-
-            if (propertyMap.SourceExpression != null)
-            {
-                var compiled = propertyMap.SourceExpression.Compile();
-                value = compiled.DynamicInvoke(source);
-            }
-            else if (propertyMap.SourceProperty != null)
-            {
-                value = propertyMap.SourceProperty.GetValue(source);
-            }
-            else
-            {
-                continue;
-            }
-
-            propertyMap.DestinationProperty.SetValue(dest, value);
+            throw new InvalidOperationException($"Map for {sourceType} -> {destinationType} was not compiled.");
         }
 
-        return dest;
+        return map.MappingFunc(source, this);
     }
 }

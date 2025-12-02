@@ -23,7 +23,12 @@ public class MapperConfiguration : IMapperConfigurationExpression
         return new TypeMapExpression<TSource, TDestination>(map, this);
     }
 
-    public IMapper CreateMapper() => new SimpleMapper(_maps);
+    public IMapper CreateMapper()
+    {
+        var compiler = new MapCompiler(_maps);
+        compiler.CompileAll();
+        return new SimpleMapper(_maps);
+    }
 
     internal TypeMap GetMap(Type source, Type dest) => _maps[(source, dest)];
 
@@ -63,8 +68,7 @@ public class MapperConfiguration : IMapperConfigurationExpression
                     continue;
                 }
 
-                if (srcProps.TryGetValue(destProp.Name, out var sourceProp) &&
-                    destProp.PropertyType.IsAssignableFrom(sourceProp.PropertyType))
+                if (srcProps.TryGetValue(destProp.Name, out var sourceProp))
                 {
                     propertyMap.SourceProperty = sourceProp;
                 }

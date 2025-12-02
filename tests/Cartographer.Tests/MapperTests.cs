@@ -59,6 +59,44 @@ public class MapperTests
         src.Id.Should().Be(4);
         src.Name.Should().Be("Zoe");
     }
+
+    [Fact]
+    public void Maps_nested_types_recursively()
+    {
+        var src = new DemoSource
+        {
+            Id = 5,
+            Name = "Parent",
+            Child = new DemoChild { Value = "Nested" }
+        };
+
+        var dest = _mapper.Map<DemoDestination>(src);
+
+        dest.Child.Should().NotBeNull();
+        dest.Child!.Value.Should().Be("Nested");
+    }
+
+    [Fact]
+    public void Maps_collections_recursively()
+    {
+        var src = new DemoSource
+        {
+            Id = 6,
+            Name = "Parent",
+            Children = new[]
+            {
+                new DemoChild { Value = "One" },
+                new DemoChild { Value = "Two" }
+            }
+        };
+
+        var dest = _mapper.Map<DemoDestination>(src);
+
+        dest.Children.Should().NotBeNull();
+        dest.Children!.Count.Should().Be(2);
+        dest.Children[0].Value.Should().Be("One");
+        dest.Children[1].Value.Should().Be("Two");
+    }
 }
 
 file static class MapperTestExtensions
@@ -77,6 +115,9 @@ file class DemoProfile : Profile
             .ForMember(d => d.Label, o => o.MapFrom(s => $"Label: {s.Name}"))
             .ForMember(d => d.Ignored, o => o.Ignore())
             .ReverseMap();
+
+        cfg.CreateMap<DemoChild, DemoChildDto>()
+            .ReverseMap();
     }
 }
 
@@ -84,6 +125,8 @@ file class DemoSource
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public DemoChild? Child { get; set; }
+    public IEnumerable<DemoChild>? Children { get; set; }
 }
 
 file class DemoDestination
@@ -92,4 +135,16 @@ file class DemoDestination
     public string Name { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
     public string? Ignored { get; set; }
+    public DemoChildDto? Child { get; set; }
+    public List<DemoChildDto>? Children { get; set; }
+}
+
+file class DemoChild
+{
+    public string Value { get; set; } = string.Empty;
+}
+
+file class DemoChildDto
+{
+    public string Value { get; set; } = string.Empty;
 }
