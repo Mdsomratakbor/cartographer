@@ -28,4 +28,6 @@ public class TypeMap
     /// </summary>
     public List<PropertyMap> PropertyMaps { get; } = new();
     internal Func<object, IMapper, object>? MappingFunc { get; set; }
+    internal Action<object, object>? BeforeMapAction { get; set; }
+    internal Action<object, object>? AfterMapAction { get; set; }
 }

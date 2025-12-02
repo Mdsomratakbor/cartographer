@@ -97,6 +97,37 @@ public class MapperTests
         dest.Children[0].Value.Should().Be("One");
         dest.Children[1].Value.Should().Be("Two");
     }
+
+    [Fact]
+    public void BeforeMap_and_AfterMap_are_invoked()
+    {
+        var src = new DemoSource { Id = 7, Name = "BeforeAfter" };
+
+        var dest = _mapper.Map<DemoDestination>(src);
+
+        dest.BeforeCalled.Should().BeTrue();
+        dest.AfterCalled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PreCondition_skips_member_when_false()
+    {
+        var src = new DemoSource { Id = 8, Name = "Skip", Flag = false };
+
+        var dest = _mapper.Map<DemoDestination>(src);
+
+        dest.Conditional.Should().BeNull();
+    }
+
+    [Fact]
+    public void Condition_skips_member_when_false()
+    {
+        var src = new DemoSource { Id = 9, Name = "Skip2", Flag = false };
+
+        var dest = _mapper.Map<DemoDestination>(src);
+
+        dest.Conditional2.Should().BeNull();
+    }
 }
 
 file static class MapperTestExtensions
@@ -114,6 +145,18 @@ file class DemoProfile : Profile
         cfg.CreateMap<DemoSource, DemoDestination>()
             .ForMember(d => d.Label, o => o.MapFrom(s => $"Label: {s.Name}"))
             .ForMember(d => d.Ignored, o => o.Ignore())
+            .ForMember(d => d.Conditional, o =>
+            {
+                o.PreCondition(s => s.Flag);
+                o.MapFrom(s => s.Name);
+            })
+            .ForMember(d => d.Conditional2, o =>
+            {
+                o.Condition(s => s.Flag);
+                o.MapFrom(s => s.Name);
+            })
+            .BeforeMap((s, d) => d.BeforeCalled = true)
+            .AfterMap((s, d) => d.AfterCalled = true)
             .ReverseMap();
 
         cfg.CreateMap<DemoChild, DemoChildDto>()
@@ -125,6 +168,7 @@ file class DemoSource
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public bool Flag { get; set; }
     public DemoChild? Child { get; set; }
     public IEnumerable<DemoChild>? Children { get; set; }
 }
@@ -137,6 +181,10 @@ file class DemoDestination
     public string? Ignored { get; set; }
     public DemoChildDto? Child { get; set; }
     public List<DemoChildDto>? Children { get; set; }
+    public string? Conditional { get; set; }
+    public string? Conditional2 { get; set; }
+    public bool BeforeCalled { get; set; }
+    public bool AfterCalled { get; set; }
 }
 
 file class DemoChild

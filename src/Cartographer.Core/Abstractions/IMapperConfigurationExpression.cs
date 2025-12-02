@@ -32,6 +32,16 @@ public interface ITypeMapExpression<TSource, TDestination>
     ITypeMapExpression<TSource, TDestination> ForMember<TMember>(
         Expression<Func<TDestination, TMember>> destMember,
         Action<IMemberConfigurationExpression<TSource, TDestination, TMember>> memberOptions);
+
+    /// <summary>
+    /// Adds a hook executed before member mapping occurs.
+    /// </summary>
+    ITypeMapExpression<TSource, TDestination> BeforeMap(Action<TSource, TDestination> action);
+
+    /// <summary>
+    /// Adds a hook executed after member mapping completes.
+    /// </summary>
+    ITypeMapExpression<TSource, TDestination> AfterMap(Action<TSource, TDestination> action);
 }
 
 /// <summary>
@@ -48,4 +58,14 @@ public interface IMemberConfigurationExpression<TSource, TDestination, TMember>
     /// Ignores this destination member during mapping.
     /// </summary>
     void Ignore();
+
+    /// <summary>
+    /// Maps the member only when the condition is true.
+    /// </summary>
+    void Condition(Expression<Func<TSource, bool>> predicate);
+
+    /// <summary>
+    /// Evaluates before mapping begins; when false the member is skipped.
+    /// </summary>
+    void PreCondition(Expression<Func<TSource, bool>> predicate);
 }

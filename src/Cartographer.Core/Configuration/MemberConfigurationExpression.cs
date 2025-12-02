@@ -22,4 +22,14 @@ internal class MemberConfigurationExpression<TSource, TDestination, TMember> : I
     {
         _propertyMap.Ignore = true;
     }
+
+    public void Condition(Expression<Func<TSource, bool>> predicate)
+    {
+        _propertyMap.Condition = predicate;
+    }
+
+    public void PreCondition(Expression<Func<TSource, bool>> predicate)
+    {
+        _propertyMap.PreCondition = predicate;
+    }
 }

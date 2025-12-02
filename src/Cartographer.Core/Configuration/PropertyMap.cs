@@ -30,4 +30,12 @@ public class PropertyMap
     /// Whether this property should be skipped during mapping.
     /// </summary>
     public bool Ignore { get; set; }
+    /// <summary>
+    /// Condition evaluated before mapping; if false, member is skipped.
+    /// </summary>
+    public LambdaExpression? PreCondition { get; set; }
+    /// <summary>
+    /// Condition evaluated during mapping; if false, member is skipped.
+    /// </summary>
+    public LambdaExpression? Condition { get; set; }
 }

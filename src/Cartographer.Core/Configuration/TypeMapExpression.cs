@@ -22,6 +22,18 @@ internal class TypeMapExpression<TSource, TDestination> : ITypeMapExpression<TSo
         return _config.CreateMap<TDestination, TSource>();
     }
 
+    public ITypeMapExpression<TSource, TDestination> BeforeMap(Action<TSource, TDestination> action)
+    {
+        _typeMap.BeforeMapAction = (src, dest) => action((TSource)src, (TDestination)dest);
+        return this;
+    }
+
+    public ITypeMapExpression<TSource, TDestination> AfterMap(Action<TSource, TDestination> action)
+    {
+        _typeMap.AfterMapAction = (src, dest) => action((TSource)src, (TDestination)dest);
+        return this;
+    }
+
     public ITypeMapExpression<TSource, TDestination> ForMember<TMember>(Expression<Func<TDestination, TMember>> destMember, Action<IMemberConfigurationExpression<TSource, TDestination, TMember>> memberOptions)
     {
         if (destMember.Body is not MemberExpression me || me.Member is not PropertyInfo destProp)

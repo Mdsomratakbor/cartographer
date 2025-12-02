@@ -46,6 +46,11 @@ internal class MapCompiler
         var mapValueMethod = typeof(MapCompiler).GetMethod(nameof(MapValue), BindingFlags.NonPublic | BindingFlags.Static)
                               ?? throw new InvalidOperationException("Missing MapValue helper.");
 
+        if (map.BeforeMapAction != null)
+        {
+            expressions.Add(Expression.Invoke(Expression.Constant(map.BeforeMapAction), srcTyped, destTyped));
+        }
+
         foreach (var propertyMap in map.PropertyMaps)
         {
             if (propertyMap.Ignore)
@@ -81,11 +86,32 @@ internal class MapCompiler
                 mapperParam,
                 mapsConst);
 
-            var assign = Expression.Assign(
+            var assignment = Expression.Assign(
                 Expression.Property(destTyped, propertyMap.DestinationProperty),
                 Expression.Convert(callMapValue, propertyMap.DestinationProperty.PropertyType));
 
-            expressions.Add(assign);
+            Expression guardedAssignment = assignment;
+
+            if (propertyMap.PreCondition != null)
+            {
+                guardedAssignment = Expression.IfThen(
+                    Expression.Invoke(propertyMap.PreCondition, srcTyped),
+                    guardedAssignment);
+            }
+
+            if (propertyMap.Condition != null)
+            {
+                guardedAssignment = Expression.IfThen(
+                    Expression.Invoke(propertyMap.Condition, srcTyped),
+                    guardedAssignment);
+            }
+
+            expressions.Add(guardedAssignment);
+        }
+
+        if (map.AfterMapAction != null)
+        {
+            expressions.Add(Expression.Invoke(Expression.Constant(map.AfterMapAction), srcTyped, destTyped));
         }
 
         expressions.Add(Expression.Convert(destTyped, typeof(object)));

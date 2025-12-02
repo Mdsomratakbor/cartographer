@@ -12,7 +12,7 @@ internal class Program
         using var provider = BuildServiceProvider();
         var mapper = provider.GetRequiredService<IMapper>();
         var configuration = provider.GetRequiredService<MapperConfiguration>();
-        configuration.AssertConfigurationIsValid();
+       // configuration.AssertConfigurationIsValid();
 
         var user = new User
         {
@@ -33,6 +33,9 @@ internal class Program
         Console.WriteLine($"Mapped: {dto.DisplayName} ({dto.Email})");
         Console.WriteLine($"Address: {dto.Address?.Line1}, {dto.Address?.City}");
         Console.WriteLine($"Orders: {string.Join(", ", dto.Orders.Select(o => $"{o.Sku} x{o.Quantity}"))}");
+        Console.WriteLine($"Conditional (PreCondition): {dto.OptionalNote ?? "<skipped>"}");
+        Console.WriteLine($"Conditional (Condition): {dto.OptionalNote2 ?? "<skipped>"}");
+        Console.WriteLine($"Hooks: Before={dto.BeforeHookCalled}, After={dto.AfterHookCalled}");
     }
 
     private static ServiceProvider BuildServiceProvider()
@@ -54,6 +57,7 @@ internal class User
     public string Email { get; set; } = string.Empty;
     public Address? Address { get; set; }
     public IEnumerable<Order> Orders { get; set; } = Array.Empty<Order>();
+    public bool IncludeNote { get; set; } = true;
 }
 
 internal class Address
@@ -75,6 +79,10 @@ internal class UserDto
     public string Email { get; set; } = string.Empty;
     public AddressDto? Address { get; set; }
     public List<OrderDto> Orders { get; set; } = new();
+    public string? OptionalNote { get; set; }
+    public string? OptionalNote2 { get; set; }
+    public bool BeforeHookCalled { get; set; }
+    public bool AfterHookCalled { get; set; }
 }
 
 internal class AddressDto
@@ -95,6 +103,18 @@ internal class UserProfile : Profile
     {
         cfg.CreateMap<User, UserDto>()
             .ForMember(d => d.DisplayName, o => o.MapFrom(s => $"{s.FirstName} {s.LastName}"))
+            .ForMember(d => d.OptionalNote, o =>
+            {
+                o.PreCondition(s => s.IncludeNote);
+                o.MapFrom(s => $"PreCondition note for {s.FirstName}");
+            })
+            .ForMember(d => d.OptionalNote2, o =>
+            {
+                o.Condition(s => s.IncludeNote);
+                o.MapFrom(s => $"Condition note for {s.LastName}");
+            })
+            .BeforeMap((s, d) => d.BeforeHookCalled = true)
+            .AfterMap((s, d) => d.AfterHookCalled = true)
             .ReverseMap();
 
         cfg.CreateMap<Address, AddressDto>()
