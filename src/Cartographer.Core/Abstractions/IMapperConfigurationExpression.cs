@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using Cartographer.Core.Configuration.Converters;
+using Cartographer.Core.Configuration;
 using Cartographer.Core.Configuration.Naming;
 
 namespace Cartographer.Core.Abstractions;
@@ -26,6 +27,21 @@ public interface IMapperConfigurationExpression
     /// Additional strategies for matching members beyond naming conventions.
     /// </summary>
     IList<Func<PropertyInfo, PropertyInfo, bool>> MemberMatchingStrategies { get; }
+
+    /// <summary>
+    /// Maximum mapping depth; when exceeded nested mapping yields null/default.
+    /// </summary>
+    int? MaxDepth { get; set; }
+
+    /// <summary>
+    /// Whether to preserve references when mapping object graphs.
+    /// </summary>
+    bool PreserveReferences { get; set; }
+
+    /// <summary>
+    /// How null source collections are handled globally.
+    /// </summary>
+    NullCollectionStrategy NullCollectionStrategy { get; set; }
 
     /// <summary>
     /// Creates or retrieves a type map between <typeparamref name="TSource"/> and <typeparamref name="TDestination"/>.

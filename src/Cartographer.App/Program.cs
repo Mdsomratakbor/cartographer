@@ -1,10 +1,10 @@
 ﻿using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration;
-using Cartographer.Core.DependencyInjection;
-using Cartographer.Core.Configuration.Naming;
 using Cartographer.Core.Configuration.Attributes;
-using Microsoft.Extensions.DependencyInjection;
 using Cartographer.Core.Configuration.Converters;
+using Cartographer.Core.Configuration.Naming;
+using Cartographer.Core.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Cartographer.App;
 
@@ -23,23 +23,23 @@ internal class Program
             FirstName = "Ada",
             LastName = "Lovelace",
             Email = "ada@example.com",
+            Friend = CreateFriendGraph(),
+            BestFriend = CreateFriendGraph(),
             Address = new Address { Line1 = "123 Logic Way", City = "London" },
             postal_code = "90210",
-            Orders = new[]
-            {
-                new Order { Sku = "ABC-001", Quantity = 2 },
-                new Order { Sku = "XYZ-999", Quantity = 1 }
-            }
+            Orders = null
         };
 
         var dto = mapper.Map<UserDto>(user);
 
         Console.WriteLine($"Mapped: {dto.DisplayName} ({dto.Email})");
         Console.WriteLine($"Address: {dto.Address?.Line1}, {dto.Address?.City}");
-        Console.WriteLine($"Orders: {string.Join(", ", dto.Orders.Select(o => $"{o.Sku} x{o.Quantity}"))}");
+        Console.WriteLine($"Orders: {(dto.Orders.Any() ? string.Join(", ", dto.Orders.Select(o => $"{o.Sku} x{o.Quantity}")) : "<empty>")}");
         Console.WriteLine($"Conditional (PreCondition): {dto.OptionalNote ?? "<skipped>"}");
         Console.WriteLine($"Conditional (Condition): {dto.OptionalNote2 ?? "<skipped>"}");
         Console.WriteLine($"Hooks: Before={dto.BeforeHookCalled}, After={dto.AfterHookCalled}");
+        Console.WriteLine($"Friend: {dto.Friend?.DisplayName} (Friend.Friend null? {dto.Friend?.Friend is null})");
+        Console.WriteLine($"PreserveReferences (BestFriend == Friend): {ReferenceEquals(dto.BestFriend, dto.Friend)}");
 
         // Demonstrate mapping into an existing instance (patch/update scenario)
         var existingDto = new UserDto { DisplayName = "Existing Value" };
@@ -51,15 +51,40 @@ internal class Program
     {
         var services = new ServiceCollection();
 
-        // Registers Cartographer with naming conventions and profile scanning in this assembly
+        // Registers Cartographer with naming conventions, global options, and profile scanning in this assembly
         services.AddCartographer(cfg =>
         {
             cfg.SourceNamingConvention = new SnakeCaseNamingConvention();
             cfg.DestinationNamingConvention = new PascalCaseNamingConvention();
+            cfg.MaxDepth = 3;
+            cfg.PreserveReferences = true;
+            cfg.NullCollectionStrategy = NullCollectionStrategy.UseEmptyCollection;
             new UserProfile().Apply(cfg);
         });
 
         return services.BuildServiceProvider();
+    }
+
+    private static User CreateFriendGraph()
+    {
+        var friend = new User
+        {
+            Id = Guid.NewGuid(),
+            FirstName = "Grace",
+            LastName = "Hopper",
+            Email = "grace@example.com"
+        };
+
+        // This deeper friend will be trimmed by MaxDepth
+        friend.Friend = new User
+        {
+            Id = Guid.NewGuid(),
+            FirstName = "Deep",
+            LastName = "Friend",
+            Email = "deep@example.com"
+        };
+
+        return friend;
     }
 }
 
@@ -75,6 +100,8 @@ internal class User
     public string postal_code { get; set; } = string.Empty;
     public string AgeText { get; set; } = "37";
     public string IgnoredFromAttribute { get; set; } = "ShouldNotMap";
+    public User? Friend { get; set; }
+    public User? BestFriend { get; set; }
 }
 
 internal class Address
@@ -105,6 +132,8 @@ internal class UserDto
     public int Age { get; set; }
     [IgnoreMap]
     public string IgnoredFromAttribute { get; set; } = string.Empty;
+    public UserDto? Friend { get; set; }
+    public UserDto? BestFriend { get; set; }
 }
 
 internal class AddressDto

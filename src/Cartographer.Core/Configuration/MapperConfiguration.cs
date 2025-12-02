@@ -16,6 +16,9 @@ public class MapperConfiguration : IMapperConfigurationExpression
     public INamingConvention SourceNamingConvention { get; set; } = new IdentityNamingConvention();
     public INamingConvention DestinationNamingConvention { get; set; } = new IdentityNamingConvention();
     public IList<Func<PropertyInfo, PropertyInfo, bool>> MemberMatchingStrategies { get; } = new List<Func<PropertyInfo, PropertyInfo, bool>>();
+    public int? MaxDepth { get; set; }
+    public bool PreserveReferences { get; set; }
+    public NullCollectionStrategy NullCollectionStrategy { get; set; } = NullCollectionStrategy.PreserveNull;
 
     /// <summary>
     /// Creates a mapper configuration using the provided configuration action.
@@ -43,7 +46,13 @@ public class MapperConfiguration : IMapperConfigurationExpression
     {
         var compiler = new MapCompiler(_maps);
         compiler.CompileAll();
-        return new SimpleMapper(_maps);
+        var options = new MappingOptions
+        {
+            MaxDepth = MaxDepth,
+            PreserveReferences = PreserveReferences,
+            NullCollectionStrategy = NullCollectionStrategy
+        };
+        return new SimpleMapper(_maps, options);
     }
 
     /// <summary>

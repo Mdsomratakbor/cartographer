@@ -223,6 +223,73 @@ public class MapperTests
         dest.Renamed.Should().Be("Hello");
         dest.Unused.Should().BeNull();
     }
+
+    [Fact]
+    public void MaxDepth_stops_nested_mapping()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.MaxDepth = 1;
+            cfg.CreateMap<Node, NodeDto>();
+        });
+
+        var mapper = config.CreateMapper();
+        var root = new Node { Name = "Root", Child = new Node { Name = "Child" } };
+
+        var dest = mapper.Map<NodeDto>(root);
+
+        dest.Name.Should().Be("Root");
+        dest.Child.Should().BeNull();
+    }
+
+    [Fact]
+    public void PreserveReferences_reuses_instances()
+    {
+        var shared = new RefItem { Value = "Shared" };
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.PreserveReferences = true;
+            cfg.CreateMap<RefContainer, RefContainerDto>();
+            cfg.CreateMap<RefItem, RefItemDto>();
+        });
+
+        var mapper = config.CreateMapper();
+        var source = new RefContainer { A = shared, B = shared };
+
+        var dest = mapper.Map<RefContainerDto>(source);
+
+        dest.A.Should().BeSameAs(dest.B);
+    }
+
+    [Fact]
+    public void Null_collections_preserved_by_default()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<CollectionSource, CollectionDestination>();
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<CollectionDestination>(new CollectionSource { Items = null });
+
+        dest.Items.Should().BeNull();
+    }
+
+    [Fact]
+    public void Null_collections_can_be_substituted_with_empty()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.NullCollectionStrategy = NullCollectionStrategy.UseEmptyCollection;
+            cfg.CreateMap<CollectionSource, CollectionDestination>();
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<CollectionDestination>(new CollectionSource { Items = null });
+
+        dest.Items.Should().NotBeNull();
+        dest.Items!.Should().BeEmpty();
+    }
 }
 
 file static class MapperTestExtensions
@@ -353,6 +420,50 @@ file class AttrDestination
 
     [IgnoreMap]
     public string? Unused { get; set; }
+}
+
+file class Node
+{
+    public string Name { get; set; } = string.Empty;
+    public Node? Child { get; set; }
+}
+
+file class NodeDto
+{
+    public string Name { get; set; } = string.Empty;
+    public NodeDto? Child { get; set; }
+}
+
+file class RefItem
+{
+    public string Value { get; set; } = string.Empty;
+}
+
+file class RefItemDto
+{
+    public string Value { get; set; } = string.Empty;
+}
+
+file class RefContainer
+{
+    public RefItem? A { get; set; }
+    public RefItem? B { get; set; }
+}
+
+file class RefContainerDto
+{
+    public RefItemDto? A { get; set; }
+    public RefItemDto? B { get; set; }
+}
+
+file class CollectionSource
+{
+    public IEnumerable<string>? Items { get; set; }
+}
+
+file class CollectionDestination
+{
+    public List<string>? Items { get; set; }
 }
 
 file class DemoChild

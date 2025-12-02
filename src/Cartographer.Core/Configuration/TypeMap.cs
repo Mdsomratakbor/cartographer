@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cartographer.Core.Abstractions;
+using Cartographer.Core.Runtime;
 
 namespace Cartographer.Core.Configuration;
 
@@ -27,8 +28,8 @@ public class TypeMap
     /// Member-level mapping rules.
     /// </summary>
     public List<PropertyMap> PropertyMaps { get; } = new();
-    internal Func<object, IMapper, object>? MappingFunc { get; set; }
-    internal Action<object, object, IMapper>? UpdateAction { get; set; }
+    internal Func<object, IMapper, MappingContext, object>? MappingFunc { get; set; }
+    internal Action<object, object, IMapper, MappingContext>? UpdateAction { get; set; }
     internal Action<object, object>? BeforeMapAction { get; set; }
     internal Action<object, object>? AfterMapAction { get; set; }
     internal object? TypeConverter { get; set; }
