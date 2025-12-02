@@ -40,7 +40,7 @@ internal class Program
         // Demonstrate mapping into an existing instance (patch/update scenario)
         var existingDto = new UserDto { DisplayName = "Existing Value" };
         mapper.Map(user, existingDto);
-        Console.WriteLine($"Existing instance updated: {existingDto.DisplayName} ({existingDto.Email}) ({existingDto.Address.Line1})");
+        Console.WriteLine($"Existing instance updated: {existingDto.DisplayName} ({existingDto.Email}) ({existingDto.Address?.Line1}) PostalCode={existingDto.PostalCode}");
     }
 
     private static ServiceProvider BuildServiceProvider()
