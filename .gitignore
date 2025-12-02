@@ -1,0 +1,32 @@
+# Build artifacts
+bin/
+obj/
+TestResult*/
+[Tt]est[Rr]esult*/
+*.user
+*.lock.json
+
+# IDE
+.vs/
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Logs
+*.log
+
+# Resharper / Rider
+_ReSharper*/
+*.DotSettings.user
+
+# Coverage
+coverage*/ 
+*.coverage
+*.coveragexml
+
+# OS
+[Tt]humbs.db
+*.DS_Store
