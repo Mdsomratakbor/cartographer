@@ -11,18 +11,28 @@ public class MapperConfiguration : IMapperConfigurationExpression
 {
     private readonly Dictionary<(Type, Type), TypeMap> _maps = new();
 
+    /// <summary>
+    /// Creates a mapper configuration using the provided configuration action.
+    /// </summary>
+    /// <param name="config">Action that defines all maps.</param>
     public MapperConfiguration(Action<IMapperConfigurationExpression> config)
     {
         config(this);
         BuildConventionMaps();
     }
 
+    /// <summary>
+    /// Creates or retrieves a type map between source and destination.
+    /// </summary>
     public ITypeMapExpression<TSource, TDestination> CreateMap<TSource, TDestination>()
     {
         var map = GetOrCreate(typeof(TSource), typeof(TDestination));
         return new TypeMapExpression<TSource, TDestination>(map, this);
     }
 
+    /// <summary>
+    /// Builds compiled delegates for all maps and produces an <see cref="IMapper"/>.
+    /// </summary>
     public IMapper CreateMapper()
     {
         var compiler = new MapCompiler(_maps);

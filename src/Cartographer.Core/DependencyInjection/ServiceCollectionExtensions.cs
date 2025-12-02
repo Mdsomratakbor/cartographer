@@ -9,11 +9,17 @@ namespace Cartographer.Core.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers Cartographer with profile scanning across provided assemblies (or all loaded assemblies if none supplied).
+    /// </summary>
     public static IServiceCollection AddCartographer(this IServiceCollection services, params Assembly[] assembliesWithProfiles)
     {
         return services.AddCartographer(cfg => ApplyProfiles(cfg, assembliesWithProfiles));
     }
 
+    /// <summary>
+    /// Registers Cartographer using an explicit configuration action.
+    /// </summary>
     public static IServiceCollection AddCartographer(this IServiceCollection services, Action<IMapperConfigurationExpression> configure)
     {
         var config = new MapperConfiguration(configure);

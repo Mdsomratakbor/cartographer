@@ -14,12 +14,18 @@ public class SimpleMapper : IMapper
         _maps = maps;
     }
 
+    /// <summary>
+    /// Maps the given source object to a new destination instance of <typeparamref name="TDestination"/>.
+    /// </summary>
     public TDestination Map<TDestination>(object source)
     {
         if (source == null) return default!;
         return (TDestination)Map(source, source.GetType(), typeof(TDestination));
     }
 
+    /// <summary>
+    /// Maps the given source object to a new destination instance of <paramref name="destinationType"/>.
+    /// </summary>
     public object Map(object source, Type sourceType, Type destinationType)
     {
         if (!_maps.TryGetValue((sourceType, destinationType), out var map))

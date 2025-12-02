@@ -4,6 +4,9 @@ using Cartographer.Core.Abstractions;
 
 namespace Cartographer.Core.Configuration;
 
+/// <summary>
+/// Describes how to map between a source and destination type.
+/// </summary>
 public class TypeMap
 {
     public TypeMap(Type sourceType, Type destinationType)
@@ -12,8 +15,17 @@ public class TypeMap
         DestinationType = destinationType;
     }
 
+    /// <summary>
+    /// Source type for this map.
+    /// </summary>
     public Type SourceType { get; }
+    /// <summary>
+    /// Destination type for this map.
+    /// </summary>
     public Type DestinationType { get; }
+    /// <summary>
+    /// Member-level mapping rules.
+    /// </summary>
     public List<PropertyMap> PropertyMaps { get; } = new();
     internal Func<object, IMapper, object>? MappingFunc { get; set; }
 }

@@ -17,6 +17,9 @@ internal class MapCompiler
         _maps = maps;
     }
 
+    /// <summary>
+    /// Compiles mapping delegates for all configured type maps.
+    /// </summary>
     public void CompileAll()
     {
         foreach (var map in _maps.Values)
