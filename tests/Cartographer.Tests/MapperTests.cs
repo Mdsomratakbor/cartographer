@@ -128,6 +128,20 @@ public class MapperTests
 
         dest.Conditional2.Should().BeNull();
     }
+
+    [Fact]
+    public void Map_into_existing_instance_updates_values()
+    {
+        var src = new DemoSource { Id = 10, Name = "Existing", Flag = true };
+        var dest = new DemoDestination { Id = -1, Name = "Old", Label = "OldLabel" };
+
+        var result = _mapper.Map(src, dest);
+
+        result.Should().BeSameAs(dest);
+        dest.Id.Should().Be(10);
+        dest.Name.Should().Be("Existing");
+        dest.Label.Should().Be("Label: Existing");
+    }
 }
 
 file static class MapperTestExtensions

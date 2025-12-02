@@ -24,6 +24,29 @@ public class SimpleMapper : IMapper
     }
 
     /// <summary>
+    /// Maps the given source object into an existing destination instance.
+    /// </summary>
+    public TDestination Map<TDestination>(object source, TDestination destination)
+    {
+        if (source == null) return destination!;
+        var sourceType = source.GetType();
+        var destType = destination?.GetType() ?? typeof(TDestination);
+
+        if (!_maps.TryGetValue((sourceType, destType), out var map))
+        {
+            throw new InvalidOperationException($"No mapping exists from {sourceType} to {destType}");
+        }
+
+        if (map.UpdateAction == null)
+        {
+            throw new InvalidOperationException($"Map for {sourceType} -> {destType} does not have an update action.");
+        }
+
+        map.UpdateAction(source, destination!, this);
+        return destination!;
+    }
+
+    /// <summary>
     /// Maps the given source object to a new destination instance of <paramref name="destinationType"/>.
     /// </summary>
     public object Map(object source, Type sourceType, Type destinationType)

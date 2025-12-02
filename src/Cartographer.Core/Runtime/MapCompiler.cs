@@ -24,11 +24,13 @@ internal class MapCompiler
     {
         foreach (var map in _maps.Values)
         {
-            map.MappingFunc = Compile(map);
+            var compiled = Compile(map);
+            map.MappingFunc = compiled.CreateFunc;
+            map.UpdateAction = compiled.UpdateAction;
         }
     }
 
-    private Func<object, IMapper, object> Compile(TypeMap map)
+    private (Func<object, IMapper, object> CreateFunc, Action<object, object, IMapper> UpdateAction) Compile(TypeMap map)
     {
         var sourceObj = Expression.Parameter(typeof(object), "source");
         var mapperParam = Expression.Parameter(typeof(IMapper), "mapper");
@@ -37,7 +39,7 @@ internal class MapCompiler
         var srcTyped = Expression.Variable(map.SourceType, "src");
         var destTyped = Expression.Variable(map.DestinationType, "dest");
 
-        var expressions = new List<Expression>
+        var createExpressions = new List<Expression>
         {
             Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
             Expression.Assign(destTyped, Expression.New(map.DestinationType))
@@ -48,7 +50,7 @@ internal class MapCompiler
 
         if (map.BeforeMapAction != null)
         {
-            expressions.Add(Expression.Invoke(Expression.Constant(map.BeforeMapAction), srcTyped, destTyped));
+            createExpressions.Add(Expression.Invoke(Expression.Constant(map.BeforeMapAction), srcTyped, destTyped));
         }
 
         foreach (var propertyMap in map.PropertyMaps)
@@ -106,20 +108,101 @@ internal class MapCompiler
                     guardedAssignment);
             }
 
-            expressions.Add(guardedAssignment);
+            createExpressions.Add(guardedAssignment);
         }
 
         if (map.AfterMapAction != null)
         {
-            expressions.Add(Expression.Invoke(Expression.Constant(map.AfterMapAction), srcTyped, destTyped));
+            createExpressions.Add(Expression.Invoke(Expression.Constant(map.AfterMapAction), srcTyped, destTyped));
         }
 
-        expressions.Add(Expression.Convert(destTyped, typeof(object)));
+        createExpressions.Add(Expression.Convert(destTyped, typeof(object)));
 
-        var body = Expression.Block(new[] { srcTyped, destTyped }, expressions);
+        var createBody = Expression.Block(new[] { srcTyped, destTyped }, createExpressions);
 
-        var lambda = Expression.Lambda<Func<object, IMapper, object>>(body, sourceObj, mapperParam);
-        return lambda.Compile();
+        var createLambda = Expression.Lambda<Func<object, IMapper, object>>(createBody, sourceObj, mapperParam);
+
+        // Update action (map into existing destination)
+        var destObj = Expression.Parameter(typeof(object), "destination");
+        var destTypedUpdate = Expression.Variable(map.DestinationType, "destUpdate");
+        var updateExpressions = new List<Expression>
+        {
+            Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
+            Expression.Assign(destTypedUpdate, Expression.Convert(destObj, map.DestinationType))
+        };
+
+        if (map.BeforeMapAction != null)
+        {
+            updateExpressions.Add(Expression.Invoke(Expression.Constant(map.BeforeMapAction), srcTyped, destTypedUpdate));
+        }
+
+        foreach (var propertyMap in map.PropertyMaps)
+        {
+            if (propertyMap.Ignore)
+            {
+                continue;
+            }
+
+            if (propertyMap.SourceExpression == null && propertyMap.SourceProperty == null)
+            {
+                continue;
+            }
+
+            Expression sourceValue;
+            Type sourceValueType;
+
+            if (propertyMap.SourceExpression != null)
+            {
+                var invoked = Expression.Invoke(propertyMap.SourceExpression, srcTyped);
+                sourceValue = invoked;
+                sourceValueType = propertyMap.SourceExpression.ReturnType;
+            }
+            else
+            {
+                sourceValue = Expression.Property(srcTyped, propertyMap.SourceProperty!);
+                sourceValueType = propertyMap.SourceProperty!.PropertyType;
+            }
+
+            var callMapValue = Expression.Call(
+                mapValueMethod,
+                Expression.Convert(sourceValue, typeof(object)),
+                Expression.Constant(sourceValueType, typeof(Type)),
+                Expression.Constant(propertyMap.DestinationProperty.PropertyType, typeof(Type)),
+                mapperParam,
+                mapsConst);
+
+            var assign = Expression.Assign(
+                Expression.Property(destTypedUpdate, propertyMap.DestinationProperty),
+                Expression.Convert(callMapValue, propertyMap.DestinationProperty.PropertyType));
+
+            Expression guardedAssignment = assign;
+
+            if (propertyMap.PreCondition != null)
+            {
+                guardedAssignment = Expression.IfThen(
+                    Expression.Invoke(propertyMap.PreCondition, srcTyped),
+                    guardedAssignment);
+            }
+
+            if (propertyMap.Condition != null)
+            {
+                guardedAssignment = Expression.IfThen(
+                    Expression.Invoke(propertyMap.Condition, srcTyped),
+                    guardedAssignment);
+            }
+
+            updateExpressions.Add(guardedAssignment);
+        }
+
+        if (map.AfterMapAction != null)
+        {
+            updateExpressions.Add(Expression.Invoke(Expression.Constant(map.AfterMapAction), srcTyped, destTypedUpdate));
+        }
+
+        var updateBody = Expression.Block(new[] { srcTyped, destTypedUpdate }, updateExpressions);
+        var updateLambda = Expression.Lambda<Action<object, object, IMapper>>(updateBody, sourceObj, destObj, mapperParam);
+
+        return (createLambda.Compile(), updateLambda.Compile());
     }
 
     private static Type? GetEnumerableType(Type type)

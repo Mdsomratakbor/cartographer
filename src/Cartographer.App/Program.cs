@@ -36,6 +36,11 @@ internal class Program
         Console.WriteLine($"Conditional (PreCondition): {dto.OptionalNote ?? "<skipped>"}");
         Console.WriteLine($"Conditional (Condition): {dto.OptionalNote2 ?? "<skipped>"}");
         Console.WriteLine($"Hooks: Before={dto.BeforeHookCalled}, After={dto.AfterHookCalled}");
+
+        // Demonstrate mapping into an existing instance (patch/update scenario)
+        var existingDto = new UserDto { DisplayName = "Existing Value" };
+        mapper.Map(user, existingDto);
+        Console.WriteLine($"Existing instance updated: {existingDto.DisplayName} ({existingDto.Email}) ({existingDto.Address.Line1})");
     }
 
     private static ServiceProvider BuildServiceProvider()

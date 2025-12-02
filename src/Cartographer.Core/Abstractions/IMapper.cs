@@ -22,4 +22,13 @@ public interface IMapper
     /// <param name="destinationType">Destination type to map to.</param>
     /// <returns>A new destination instance populated from the source.</returns>
     object Map(object source, Type sourceType, Type destinationType);
+
+    /// <summary>
+    /// Maps the given source object into the provided destination instance.
+    /// </summary>
+    /// <param name="source">Source object to map from.</param>
+    /// <param name="destination">Existing destination instance to populate.</param>
+    /// <typeparam name="TDestination">Destination type.</typeparam>
+    /// <returns>The same destination instance after mapping.</returns>
+    TDestination Map<TDestination>(object source, TDestination destination);
 }
