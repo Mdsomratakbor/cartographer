@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Collections.Generic;
+using Cartographer.Core.Configuration.Converters;
 using Cartographer.Core.Configuration.Naming;
 
 namespace Cartographer.Core.Abstractions;
@@ -52,6 +53,11 @@ public interface ITypeMapExpression<TSource, TDestination>
         Action<IMemberConfigurationExpression<TSource, TDestination, TMember>> memberOptions);
 
     /// <summary>
+    /// Uses a type converter to map from source to destination, bypassing member-by-member mapping.
+    /// </summary>
+    ITypeMapExpression<TSource, TDestination> ConvertUsing(ITypeConverter<TSource, TDestination> converter);
+
+    /// <summary>
     /// Adds a hook executed before member mapping occurs.
     /// </summary>
     ITypeMapExpression<TSource, TDestination> BeforeMap(Action<TSource, TDestination> action);
@@ -86,4 +92,9 @@ public interface IMemberConfigurationExpression<TSource, TDestination, TMember>
     /// Evaluates before mapping begins; when false the member is skipped.
     /// </summary>
     void PreCondition(Expression<Func<TSource, bool>> predicate);
+
+    /// <summary>
+    /// Uses a value converter to populate the destination member.
+    /// </summary>
+    void ConvertUsing<TSourceMember>(IValueConverter<TSourceMember, TMember> converter, Expression<Func<TSource, TSourceMember>>? sourceMember = null);
 }

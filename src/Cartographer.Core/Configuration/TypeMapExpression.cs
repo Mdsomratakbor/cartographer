@@ -3,6 +3,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Cartographer.Core.Abstractions;
+using Cartographer.Core.Configuration.Converters;
 
 namespace Cartographer.Core.Configuration;
 
@@ -20,6 +21,12 @@ internal class TypeMapExpression<TSource, TDestination> : ITypeMapExpression<TSo
     public ITypeMapExpression<TDestination, TSource> ReverseMap()
     {
         return _config.CreateMap<TDestination, TSource>();
+    }
+
+    public ITypeMapExpression<TSource, TDestination> ConvertUsing(ITypeConverter<TSource, TDestination> converter)
+    {
+        _typeMap.TypeConverter = converter;
+        return this;
     }
 
     public ITypeMapExpression<TSource, TDestination> BeforeMap(Action<TSource, TDestination> action)

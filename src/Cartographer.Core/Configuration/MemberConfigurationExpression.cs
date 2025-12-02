@@ -1,6 +1,7 @@
 using System;
 using System.Linq.Expressions;
 using Cartographer.Core.Abstractions;
+using Cartographer.Core.Configuration.Converters;
 
 namespace Cartographer.Core.Configuration;
 
@@ -31,5 +32,16 @@ internal class MemberConfigurationExpression<TSource, TDestination, TMember> : I
     public void PreCondition(Expression<Func<TSource, bool>> predicate)
     {
         _propertyMap.PreCondition = predicate;
+    }
+
+    public void ConvertUsing<TSourceMember>(IValueConverter<TSourceMember, TMember> converter, Expression<Func<TSource, TSourceMember>>? sourceMember = null)
+    {
+        if (sourceMember != null)
+        {
+            _propertyMap.SourceExpression = sourceMember;
+        }
+
+        _propertyMap.ValueConverter = converter;
+        _propertyMap.ValueConverterSourceType = typeof(TSourceMember);
     }
 }

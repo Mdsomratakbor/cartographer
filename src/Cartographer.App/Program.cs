@@ -71,6 +71,7 @@ internal class User
     public IEnumerable<Order> Orders { get; set; } = Array.Empty<Order>();
     public bool IncludeNote { get; set; } = true;
     public string postal_code { get; set; } = string.Empty;
+    public string AgeText { get; set; } = "37";
 }
 
 internal class Address
@@ -97,6 +98,7 @@ internal class UserDto
     public bool BeforeHookCalled { get; set; }
     public bool AfterHookCalled { get; set; }
     public string PostalCode { get; set; } = string.Empty;
+    public int Age { get; set; }
 }
 
 internal class AddressDto
@@ -117,6 +119,7 @@ internal class UserProfile : Profile
     {
         cfg.CreateMap<User, UserDto>()
             .ForMember(d => d.DisplayName, o => o.MapFrom(s => $"{s.FirstName} {s.LastName}"))
+            .ForMember(d => d.Age, o => o.ConvertUsing(new StringToIntConverter(), s => s.AgeText))
             .ForMember(d => d.OptionalNote, o =>
             {
                 o.PreCondition(s => s.IncludeNote);
@@ -135,6 +138,21 @@ internal class UserProfile : Profile
             .ReverseMap();
 
         cfg.CreateMap<Order, OrderDto>()
+            .ConvertUsing(new OrderTypeConverter())
             .ReverseMap();
     }
+}
+
+internal class StringToIntConverter : IValueConverter<string, int>
+{
+    public int Convert(string sourceMember) => int.TryParse(sourceMember, out var n) ? n : 0;
+}
+
+internal class OrderTypeConverter : ITypeConverter<Order, OrderDto>
+{
+    public OrderDto Convert(Order source) => new OrderDto
+    {
+        Sku = source.Sku.ToUpperInvariant(),
+        Quantity = source.Quantity
+    };
 }

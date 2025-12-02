@@ -1,6 +1,7 @@
 using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration;
 using Cartographer.Core.Configuration.Naming;
+using Cartographer.Core.Configuration.Converters;
 using FluentAssertions;
 
 namespace Cartographer.Tests;
@@ -175,6 +176,37 @@ public class MapperTests
 
         dest.Name.Should().Be("Custom");
     }
+
+    [Fact]
+    public void Value_converter_maps_member()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<SourceWithTextNumber, DestinationWithInt>()
+                .ForMember(d => d.Number, o => o.ConvertUsing(new StringToIntConverter(), s => s.NumberText));
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<DestinationWithInt>(new SourceWithTextNumber { NumberText = "42" });
+
+        dest.Number.Should().Be(42);
+    }
+
+    [Fact]
+    public void Type_converter_overrides_member_mapping()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<ConvertibleSource, ConvertibleDestination>()
+                .ConvertUsing(new CustomTypeConverter());
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<ConvertibleDestination>(new ConvertibleSource { Value = "abc" });
+
+        dest.Value.Should().Be("ABC");
+        dest.Length.Should().Be(3);
+    }
 }
 
 file static class MapperTestExtensions
@@ -254,6 +286,42 @@ file class SpecialSource
 file class SpecialDestination
 {
     public string Name { get; set; } = string.Empty;
+}
+
+file class SourceWithTextNumber
+{
+    public string NumberText { get; set; } = string.Empty;
+}
+
+file class DestinationWithInt
+{
+    public int Number { get; set; }
+}
+
+file class StringToIntConverter : IValueConverter<string, int>
+{
+    public int Convert(string sourceMember) => int.TryParse(sourceMember, out var n) ? n : 0;
+}
+
+file class ConvertibleSource
+{
+    public string Value { get; set; } = string.Empty;
+}
+
+file class ConvertibleDestination
+{
+    public string Value { get; set; } = string.Empty;
+    public int Length { get; set; }
+}
+
+file class CustomTypeConverter : ITypeConverter<ConvertibleSource, ConvertibleDestination>
+{
+    public ConvertibleDestination Convert(ConvertibleSource source) =>
+        new ConvertibleDestination
+        {
+            Value = source.Value.ToUpperInvariant(),
+            Length = source.Value.Length
+        };
 }
 
 file class DemoChild

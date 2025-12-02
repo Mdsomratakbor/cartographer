@@ -39,14 +39,19 @@ internal class MapCompiler
         var srcTyped = Expression.Variable(map.SourceType, "src");
         var destTyped = Expression.Variable(map.DestinationType, "dest");
 
+        var mapValueMethod = typeof(MapCompiler).GetMethod(nameof(MapValue), BindingFlags.NonPublic | BindingFlags.Static)
+                              ?? throw new InvalidOperationException("Missing MapValue helper.");
+
+        if (map.TypeConverter != null)
+        {
+            return CompileTypeConverter(map, sourceObj, mapperParam, srcTyped);
+        }
+
         var createExpressions = new List<Expression>
         {
             Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
             Expression.Assign(destTyped, Expression.New(map.DestinationType))
         };
-
-        var mapValueMethod = typeof(MapCompiler).GetMethod(nameof(MapValue), BindingFlags.NonPublic | BindingFlags.Static)
-                              ?? throw new InvalidOperationException("Missing MapValue helper.");
 
         if (map.BeforeMapAction != null)
         {
@@ -65,32 +70,7 @@ internal class MapCompiler
                 continue;
             }
 
-            Expression sourceValue;
-            Type sourceValueType;
-
-            if (propertyMap.SourceExpression != null)
-            {
-                var invoked = Expression.Invoke(propertyMap.SourceExpression, srcTyped);
-                sourceValue = invoked;
-                sourceValueType = propertyMap.SourceExpression.ReturnType;
-            }
-            else
-            {
-                sourceValue = Expression.Property(srcTyped, propertyMap.SourceProperty!);
-                sourceValueType = propertyMap.SourceProperty!.PropertyType;
-            }
-
-            var callMapValue = Expression.Call(
-                mapValueMethod,
-                Expression.Convert(sourceValue, typeof(object)),
-                Expression.Constant(sourceValueType, typeof(Type)),
-                Expression.Constant(propertyMap.DestinationProperty.PropertyType, typeof(Type)),
-                mapperParam,
-                mapsConst);
-
-            var assignment = Expression.Assign(
-                Expression.Property(destTyped, propertyMap.DestinationProperty),
-                Expression.Convert(callMapValue, propertyMap.DestinationProperty.PropertyType));
+            var (assignment, _) = BuildMemberAssignment(propertyMap, srcTyped, mapperParam, mapsConst, mapValueMethod, destTyped);
 
             Expression guardedAssignment = assignment;
 
@@ -148,32 +128,7 @@ internal class MapCompiler
                 continue;
             }
 
-            Expression sourceValue;
-            Type sourceValueType;
-
-            if (propertyMap.SourceExpression != null)
-            {
-                var invoked = Expression.Invoke(propertyMap.SourceExpression, srcTyped);
-                sourceValue = invoked;
-                sourceValueType = propertyMap.SourceExpression.ReturnType;
-            }
-            else
-            {
-                sourceValue = Expression.Property(srcTyped, propertyMap.SourceProperty!);
-                sourceValueType = propertyMap.SourceProperty!.PropertyType;
-            }
-
-            var callMapValue = Expression.Call(
-                mapValueMethod,
-                Expression.Convert(sourceValue, typeof(object)),
-                Expression.Constant(sourceValueType, typeof(Type)),
-                Expression.Constant(propertyMap.DestinationProperty.PropertyType, typeof(Type)),
-                mapperParam,
-                mapsConst);
-
-            var assign = Expression.Assign(
-                Expression.Property(destTypedUpdate, propertyMap.DestinationProperty),
-                Expression.Convert(callMapValue, propertyMap.DestinationProperty.PropertyType));
+            var (assign, _) = BuildMemberAssignment(propertyMap, srcTyped, mapperParam, mapsConst, mapValueMethod, destTypedUpdate);
 
             Expression guardedAssignment = assign;
 
@@ -203,6 +158,100 @@ internal class MapCompiler
         var updateLambda = Expression.Lambda<Action<object, object, IMapper>>(updateBody, sourceObj, destObj, mapperParam);
 
         return (createLambda.Compile(), updateLambda.Compile());
+    }
+
+    private (Func<object, IMapper, object> CreateFunc, Action<object, object, IMapper> UpdateAction) CompileTypeConverter(TypeMap map, ParameterExpression sourceObj, ParameterExpression mapperParam, ParameterExpression srcTyped)
+    {
+        var converterObj = Expression.Constant(map.TypeConverter);
+        var converterType = map.TypeConverter!.GetType();
+        var convertMethod = converterType.GetMethod("Convert");
+        if (convertMethod == null)
+        {
+            throw new InvalidOperationException("Type converter must have a Convert method.");
+        }
+
+        var createExpressions = new List<Expression>
+        {
+            Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
+            Expression.Call(converterObj, convertMethod, Expression.Convert(sourceObj, map.SourceType))
+        };
+
+        var createBody = Expression.Block(new[] { srcTyped }, createExpressions);
+        var createLambda = Expression.Lambda<Func<object, IMapper, object>>(Expression.Convert(createBody, typeof(object)), sourceObj, mapperParam);
+
+        // Update: convert and copy properties to existing destination
+        var destObj = Expression.Parameter(typeof(object), "destination");
+        var destTypedUpdate = Expression.Variable(map.DestinationType, "destUpdate");
+        var converterCall = Expression.Call(converterObj, convertMethod, Expression.Convert(sourceObj, map.SourceType));
+        var tempResult = Expression.Variable(map.DestinationType, "converted");
+
+        var updateExpressions = new List<Expression>
+        {
+            Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
+            Expression.Assign(destTypedUpdate, Expression.Convert(destObj, map.DestinationType)),
+            Expression.Assign(tempResult, Expression.Convert(converterCall, map.DestinationType))
+        };
+
+        foreach (var prop in map.DestinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite && p.CanRead))
+        {
+            updateExpressions.Add(
+                Expression.Assign(Expression.Property(destTypedUpdate, prop), Expression.Property(tempResult, prop)));
+        }
+
+        var updateBody = Expression.Block(new[] { srcTyped, destTypedUpdate, tempResult }, updateExpressions);
+        var updateLambda = Expression.Lambda<Action<object, object, IMapper>>(updateBody, sourceObj, destObj, mapperParam);
+
+        return (createLambda.Compile(), updateLambda.Compile());
+    }
+
+    private (Expression Assignment, Type SourceValueType) BuildMemberAssignment(PropertyMap propertyMap, Expression srcTyped, Expression mapperParam, Expression mapsConst, MethodInfo mapValueMethod, Expression destTyped)
+    {
+        Expression sourceValue;
+        Type sourceValueType;
+
+        if (propertyMap.SourceExpression != null)
+        {
+            var invoked = Expression.Invoke(propertyMap.SourceExpression, srcTyped);
+            sourceValue = invoked;
+            sourceValueType = propertyMap.SourceExpression.ReturnType;
+        }
+        else
+        {
+            sourceValue = Expression.Property(srcTyped, propertyMap.SourceProperty!);
+            sourceValueType = propertyMap.SourceProperty!.PropertyType;
+        }
+
+        Expression valueExpression;
+
+        if (propertyMap.ValueConverter != null)
+        {
+            var converterConst = Expression.Constant(propertyMap.ValueConverter);
+            var convertMethod = propertyMap.ValueConverter.GetType().GetMethod("Convert");
+            if (convertMethod == null)
+            {
+                throw new InvalidOperationException("Value converter must have a Convert method.");
+            }
+
+            valueExpression = Expression.Call(converterConst, convertMethod, Expression.Convert(sourceValue, propertyMap.ValueConverterSourceType ?? sourceValueType));
+        }
+        else
+        {
+            var callMapValue = Expression.Call(
+                mapValueMethod,
+                Expression.Convert(sourceValue, typeof(object)),
+                Expression.Constant(sourceValueType, typeof(Type)),
+                Expression.Constant(propertyMap.DestinationProperty.PropertyType, typeof(Type)),
+                mapperParam,
+                mapsConst);
+
+            valueExpression = Expression.Convert(callMapValue, propertyMap.DestinationProperty.PropertyType);
+        }
+
+        var assignment = Expression.Assign(
+            Expression.Property(destTyped, propertyMap.DestinationProperty),
+            valueExpression);
+
+        return (assignment, sourceValueType);
     }
 
     private static Type? GetEnumerableType(Type type)

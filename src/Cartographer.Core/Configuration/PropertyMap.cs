@@ -38,4 +38,9 @@ public class PropertyMap
     /// Condition evaluated during mapping; if false, member is skipped.
     /// </summary>
     public LambdaExpression? Condition { get; set; }
+    /// <summary>
+    /// Value converter used for this member.
+    /// </summary>
+    public object? ValueConverter { get; set; }
+    public Type? ValueConverterSourceType { get; set; }
 }
