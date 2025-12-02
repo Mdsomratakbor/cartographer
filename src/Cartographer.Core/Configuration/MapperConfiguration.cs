@@ -40,6 +40,56 @@ public class MapperConfiguration : IMapperConfigurationExpression
         return new SimpleMapper(_maps);
     }
 
+    /// <summary>
+    /// Validates all configured maps and throws <see cref="ConfigurationValidationException"/> if any issues are found.
+    /// </summary>
+    public void AssertConfigurationIsValid()
+    {
+        var errors = new List<string>();
+
+        foreach (var map in _maps.Values)
+        {
+            foreach (var propertyMap in map.PropertyMaps)
+            {
+                if (propertyMap.Ignore)
+                {
+                    continue;
+                }
+
+                var destinationType = propertyMap.DestinationProperty.PropertyType;
+                var sourceType = propertyMap.SourceExpression?.ReturnType ?? propertyMap.SourceProperty?.PropertyType;
+
+                if (sourceType == null)
+                {
+                    errors.Add($"No source for destination member {map.DestinationType.Name}.{propertyMap.DestinationProperty.Name}");
+                    continue;
+                }
+
+                if (destinationType.IsAssignableFrom(sourceType))
+                {
+                    continue;
+                }
+
+                if (HasDirectMap(sourceType, destinationType))
+                {
+                    continue;
+                }
+
+                if (TryValidateEnumerableMapping(sourceType, destinationType, out var collectionError))
+                {
+                    continue;
+                }
+
+                errors.Add(collectionError ?? $"Cannot map {sourceType.Name} to {destinationType.Name} for member {map.DestinationType.Name}.{propertyMap.DestinationProperty.Name}");
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ConfigurationValidationException(errors);
+        }
+    }
+
     internal TypeMap GetMap(Type source, Type dest) => _maps[(source, dest)];
 
     private TypeMap GetOrCreate(Type src, Type dest)
@@ -84,5 +134,55 @@ public class MapperConfiguration : IMapperConfigurationExpression
                 }
             }
         }
+    }
+
+    private bool HasDirectMap(Type source, Type dest) => _maps.ContainsKey((source, dest));
+
+    private bool TryValidateEnumerableMapping(Type sourceType, Type destinationType, out string? error)
+    {
+        error = null;
+        var srcElement = GetEnumerableElementType(sourceType);
+        var destElement = GetEnumerableElementType(destinationType);
+
+        if (srcElement == null || destElement == null)
+        {
+            return false;
+        }
+
+        if (destElement.IsAssignableFrom(srcElement))
+        {
+            return true;
+        }
+
+        if (HasDirectMap(srcElement, destElement))
+        {
+            return true;
+        }
+
+        error = $"Cannot map collection element {srcElement.Name} to {destElement.Name} for member type {destinationType.Name}";
+        return false;
+    }
+
+    private static Type? GetEnumerableElementType(Type type)
+    {
+        if (type.IsArray)
+        {
+            return type.GetElementType();
+        }
+
+        if (type.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
+        {
+            return type.GetGenericArguments()[0];
+        }
+
+        foreach (var iface in type.GetInterfaces())
+        {
+            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            {
+                return iface.GetGenericArguments()[0];
+            }
+        }
+
+        return null;
     }
 }

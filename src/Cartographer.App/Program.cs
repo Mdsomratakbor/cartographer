@@ -11,6 +11,8 @@ internal class Program
     {
         using var provider = BuildServiceProvider();
         var mapper = provider.GetRequiredService<IMapper>();
+        var configuration = provider.GetRequiredService<MapperConfiguration>();
+        configuration.AssertConfigurationIsValid();
 
         var user = new User
         {
