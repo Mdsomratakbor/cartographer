@@ -23,6 +23,20 @@ internal class TypeMapExpression<TSource, TDestination> : ITypeMapExpression<TSo
         return _config.CreateMap<TDestination, TSource>();
     }
 
+    public ITypeMapExpression<TSource, TDestination> Include<TDerivedSource, TDerivedDestination>() where TDerivedSource : TSource where TDerivedDestination : TDestination
+    {
+        _typeMap.DerivedTypes.Add((typeof(TDerivedSource), typeof(TDerivedDestination)));
+        return this;
+    }
+
+    public ITypeMapExpression<TSource, TDestination> IncludeBase<TBaseSource, TBaseDestination>() where TBaseSource : TSource where TBaseDestination : TDestination
+    {
+        // For simplicity, treat IncludeBase as registering this map as derived of the base map.
+        var baseMap = _config.CreateMap<TBaseSource, TBaseDestination>() as TypeMapExpression<TBaseSource, TBaseDestination>;
+        baseMap?._typeMap.DerivedTypes.Add((typeof(TSource), typeof(TDestination)));
+        return this;
+    }
+
     public ITypeMapExpression<TSource, TDestination> ConvertUsing(ITypeConverter<TSource, TDestination> converter)
     {
         _typeMap.TypeConverter = converter;

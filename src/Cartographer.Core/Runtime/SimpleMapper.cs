@@ -60,6 +60,16 @@ public class SimpleMapper : IMapper
 
     internal object MapInternal(object source, Type sourceType, Type destinationType, MappingContext context)
     {
+        var runtimeSourceType = source.GetType();
+        var resolved = ResolveTypeMap(runtimeSourceType, destinationType);
+        if (resolved == null)
+        {
+            throw new InvalidOperationException($"No mapping exists from {runtimeSourceType} to {destinationType}");
+        }
+
+        var (map, resolvedDest) = resolved.Value;
+        destinationType = resolvedDest;
+
         if (context.Options.MaxDepth.HasValue && context.Depth >= context.Options.MaxDepth.Value)
         {
             return null!;
@@ -67,16 +77,40 @@ public class SimpleMapper : IMapper
 
         using var _ = context.Push();
 
-        if (!_maps.TryGetValue((sourceType, destinationType), out var map))
-        {
-            throw new InvalidOperationException($"No mapping exists from {sourceType} to {destinationType}");
-        }
-
         if (map.MappingFunc == null)
         {
             throw new InvalidOperationException($"Map for {sourceType} -> {destinationType} was not compiled.");
         }
 
         return map.MappingFunc(source, this, context);
+    }
+
+    private (TypeMap Map, Type DestinationType)? ResolveTypeMap(Type runtimeSourceType, Type destinationType)
+    {
+        // Exact match
+        if (_maps.TryGetValue((runtimeSourceType, destinationType), out var exact))
+        {
+            return (exact, destinationType);
+        }
+
+        // Look for a base map that includes derived types
+        foreach (var kvp in _maps)
+        {
+            var key = kvp.Key;
+            var map = kvp.Value;
+            if (key.Item1.IsAssignableFrom(runtimeSourceType) && key.Item2.IsAssignableFrom(destinationType))
+            {
+                var derived = map.DerivedTypes.FirstOrDefault(d => d.Source == runtimeSourceType);
+                if (derived != default)
+                {
+                    if (_maps.TryGetValue((derived.Source, derived.Destination), out var derivedMap))
+                    {
+                        return (derivedMap, derived.Destination);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

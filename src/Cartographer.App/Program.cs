@@ -31,6 +31,15 @@ internal class Program
         };
 
         var dto = mapper.Map<UserDto>(user);
+        BaseUser baseRef = new AdminUser
+        {
+            Id = Guid.NewGuid(),
+            FirstName = "Chief",
+            LastName = "Architect",
+            Email = "chief@example.com",
+            Title = "CTO"
+        };
+        var adminDto = mapper.Map<BaseUserDto>(baseRef);
 
         Console.WriteLine($"Mapped: {dto.DisplayName} ({dto.Email})");
         Console.WriteLine($"Address: {dto.Address?.Line1}, {dto.Address?.City}");
@@ -40,6 +49,7 @@ internal class Program
         Console.WriteLine($"Hooks: Before={dto.BeforeHookCalled}, After={dto.AfterHookCalled}");
         Console.WriteLine($"Friend: {dto.Friend?.DisplayName} (Friend.Friend null? {dto.Friend?.Friend is null})");
         Console.WriteLine($"PreserveReferences (BestFriend == Friend): {ReferenceEquals(dto.BestFriend, dto.Friend)}");
+        Console.WriteLine($"Inheritance: adminDto runtime type = {adminDto.GetType().Name}, Title={(adminDto as AdminUserDto)?.Title}");
 
         // Demonstrate mapping into an existing instance (patch/update scenario)
         var existingDto = new UserDto { DisplayName = "Existing Value" };
@@ -136,6 +146,24 @@ internal class UserDto
     public UserDto? BestFriend { get; set; }
 }
 
+internal class BaseUser : User
+{
+}
+
+internal class AdminUser : BaseUser
+{
+    public string Title { get; set; } = string.Empty;
+}
+
+internal class BaseUserDto : UserDto
+{
+}
+
+internal class AdminUserDto : BaseUserDto
+{
+    public string Title { get; set; } = string.Empty;
+}
+
 internal class AddressDto
 {
     public string Line1 { get; set; } = string.Empty;
@@ -168,6 +196,11 @@ internal class UserProfile : Profile
             .BeforeMap((s, d) => d.BeforeHookCalled = true)
             .AfterMap((s, d) => d.AfterHookCalled = true)
             .ReverseMap();
+
+        cfg.CreateMap<BaseUser, BaseUserDto>()
+            .Include<AdminUser, AdminUserDto>();
+
+        cfg.CreateMap<AdminUser, AdminUserDto>();
 
         cfg.CreateMap<Address, AddressDto>()
             .ReverseMap();

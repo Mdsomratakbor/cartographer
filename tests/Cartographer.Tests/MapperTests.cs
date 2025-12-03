@@ -290,6 +290,26 @@ public class MapperTests
         dest.Items.Should().NotBeNull();
         dest.Items!.Should().BeEmpty();
     }
+
+    [Fact]
+    public void Include_maps_derived_at_runtime()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<BaseType, BaseDto>()
+                .Include<ChildType, ChildDto>();
+            cfg.CreateMap<ChildType, ChildDto>();
+        });
+
+        var mapper = config.CreateMapper();
+        BaseType src = new ChildType { BaseValue = "base", ChildValue = "child" };
+
+        var dest = mapper.Map<BaseDto>(src);
+
+        dest.Should().BeOfType<ChildDto>();
+        dest.BaseValue.Should().Be("base");
+        ((ChildDto)dest).ChildValue.Should().Be("child");
+    }
 }
 
 file static class MapperTestExtensions
@@ -464,6 +484,26 @@ file class CollectionSource
 file class CollectionDestination
 {
     public List<string>? Items { get; set; }
+}
+
+file class BaseType
+{
+    public string BaseValue { get; set; } = string.Empty;
+}
+
+file class ChildType : BaseType
+{
+    public string ChildValue { get; set; } = string.Empty;
+}
+
+file class BaseDto
+{
+    public string BaseValue { get; set; } = string.Empty;
+}
+
+file class ChildDto : BaseDto
+{
+    public string ChildValue { get; set; } = string.Empty;
 }
 
 file class DemoChild

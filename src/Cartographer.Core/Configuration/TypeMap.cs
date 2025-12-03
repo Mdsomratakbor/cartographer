@@ -33,4 +33,5 @@ public class TypeMap
     internal Action<object, object>? BeforeMapAction { get; set; }
     internal Action<object, object>? AfterMapAction { get; set; }
     internal object? TypeConverter { get; set; }
+    internal List<(Type Source, Type Destination)> DerivedTypes { get; } = new();
 }

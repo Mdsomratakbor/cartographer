@@ -60,6 +60,18 @@ public interface ITypeMapExpression<TSource, TDestination>
     ITypeMapExpression<TDestination, TSource> ReverseMap();
 
     /// <summary>
+    /// Declares that this map should use a derived map when the runtime type matches.
+    /// </summary>
+    ITypeMapExpression<TSource, TDestination> Include<TDerivedSource, TDerivedDestination>()
+        where TDerivedSource : TSource where TDerivedDestination : TDestination;
+
+    /// <summary>
+    /// Inherits mapping configuration from a base map.
+    /// </summary>
+    ITypeMapExpression<TSource, TDestination> IncludeBase<TBaseSource, TBaseDestination>()
+        where TBaseSource : TSource where TBaseDestination : TDestination;
+
+    /// <summary>
     /// Configures mapping for a specific destination member.
     /// </summary>
     /// <param name="destMember">Destination member selector.</param>
