@@ -3,9 +3,11 @@
 This document summarizes the current feature set, how it is implemented, and where to look in the codebase.
 
 ## Projects
-- `src/Cartographer.Core`: Mapping engine, configuration, and DI extensions.
-- `src/Cartographer.App`: Console sample demonstrating basic mapping usage.
-- `tests/Cartographer.Tests`: Unit tests covering core behaviors.
+- `src/Cartographer.Core`: Mapping engine, configuration, DI extensions.
+- `src/Cartographer.App`: Console sample showing hooks, conditional mapping, map-into-existing-instance, naming conventions.
+- `example/Cartographer.Example.Api`: .NET 9 Web API showcasing profiles, DI integration, inheritance (`Include`), global options, and in-memory services.
+- `example/Cartographer.Example.Net8Api`: .NET 8 Web API mirroring the feature set to verify multi-version support.
+- `tests/Cartographer.Tests`: Unit tests covering mapping behavior, validation, converters, inheritance, collections, etc.
 
 ## Public API and Core Types
 - `Cartographer.Core.Abstractions.IMapper`
@@ -13,7 +15,7 @@ This document summarizes the current feature set, how it is implemented, and whe
 - `Cartographer.Core.Abstractions.IMapperConfigurationExpression`
   - Configures maps via `CreateMap<TSource, TDestination>()`.
 - `Cartographer.Core.Abstractions.ITypeMapExpression` / `IMemberConfigurationExpression`
-  - Fluent configuration for `ReverseMap`, `ForMember`, `MapFrom`, and `Ignore`.
+  - Fluent configuration for `ReverseMap`, `ForMember`, `BeforeMap`, `AfterMap`, `MapFrom`, `Ignore`, `Condition`, `PreCondition`, `ConvertUsing`, `Include`, and `IncludeBase`.
 - `Cartographer.Core.Configuration.Profile`
   - Base class to group related maps; apply via DI scanning or manual configuration.
 - `Cartographer.Core.DependencyInjection.ServiceCollectionExtensions`
@@ -21,13 +23,12 @@ This document summarizes the current feature set, how it is implemented, and whe
 
 ## Configuration Model
 - `TypeMap` (`src/Cartographer.Core/Configuration/TypeMap.cs`)
-  - Describes a source/destination pair; holds `PropertyMaps` and compiled `MappingFunc`.
+  - Describes a source/destination pair; holds `PropertyMaps`, compiled delegates, and derived map metadata (`Include`/`IncludeBase`).
 - `PropertyMap` (`src/Cartographer.Core/Configuration/PropertyMap.cs`)
   - Describes how a destination property is populated: convention source property, `MapFrom` expression, or ignored.
 
-## Build and Compilation
 - `MapperConfiguration` (`src/Cartographer.Core/Configuration/MapperConfiguration.cs`)
-  - Accepts configuration actions/profiles, builds `TypeMap` instances, applies convention-based member matching, and compiles delegates.
+  - Accepts configuration actions/profiles, builds `TypeMap` instances, applies naming conventions, strategies, attributes, validation, global options (MaxDepth, PreserveReferences, NullCollectionStrategy), and compiles delegates.
 - `TypeMapExpression` / `MemberConfigurationExpression`
   - Internal fluent builders backing `CreateMap`, `ForMember`, `MapFrom`, `Ignore`, and `ReverseMap`.
 - `MapCompiler` (`src/Cartographer.Core/Runtime/MapCompiler.cs`)
@@ -38,15 +39,17 @@ This document summarizes the current feature set, how it is implemented, and whe
   - Executes compiled delegates; throws if a map is missing.
 
 ## Behaviors Implemented
-- Convention mapping: same-name member matching between source/destination; nested types and collections map recursively.
-- Custom member mapping: `ForMember(... MapFrom ...)`, and `Ignore`.
-- Reverse mapping: creates the inverse map.
-- Performance: expression compilation for each map, avoiding per-call reflection.
-- DI integration: `AddCartographer()` registers configuration and mapper; optional profile scanning by assembly.
-- Testing: unit tests validate convention mapping, `MapFrom`, `Ignore`, `ReverseMap`, nested mappings, and collection mappings.
+- Convention mapping enhanced with naming conventions, attribute-based config, and custom member matching strategies.
+- Custom member options: `MapFrom`, `Ignore`, `Condition`, `PreCondition`, `ConvertUsing` (value/type converters), hooks (`BeforeMap`/`AfterMap`).
+- Reverse mapping, map-into-existing-instance, recursive nested mapping, collection handling (with null strategy), inheritance (`Include`/`IncludeBase`).
+- Global options: configuration validation, MaxDepth, PreserveReferences, NullCollectionStrategy.
+- Performance: expression compilation per map; runtime context handles depth/reference tracking.
+- DI integration: `AddCartographer()` registers configuration/mapper; profile scanning supported; sample DS usage in console and APIs.
+- Tests: cover all features including validation, converters, hooks, inheritance, global options, null strategies.
 
 ## Sample Usage
-- `src/Cartographer.App/Program.cs` shows building a mapper with a `UserProfile`, mapping a `User` to `UserDto`, and printing the result.
+- Console sample (`src/Cartographer.App`) shows all major features (hooks, conditions, naming conventions, collection strategy, global options).
+- Example APIs (`example/...`) demonstrate DI integration, profile usage, inheritance, converters, and in-memory services for both .NET 9 and .NET 8.
 
-## Next Feature Ideas (not yet implemented)
-- Configuration validation, BeforeMap/AfterMap hooks, conditional mapping, map-into-existing-instance, naming conventions, converters, attributes, global options, inheritance support, open generic maps, projection, and mapping-plan inspection.
+## Potential Future Enhancements
+- Open generic maps, projection support (`ProjectTo`), mapping-plan inspection, advanced DI integrations, packaging polish (NuGet metadata/README), and additional diagnostics tooling.
