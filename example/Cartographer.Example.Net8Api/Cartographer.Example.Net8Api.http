@@ -1,0 +1,6 @@
+@Cartographer.Example.Net8Api_HostAddress = http://localhost:5163
+
+GET {{Cartographer.Example.Net8Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

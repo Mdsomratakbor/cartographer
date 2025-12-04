@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "example", "example", "{FC3C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cartographer.Example.Api", "example\Cartographer.Example.Api\Cartographer.Example.Api.csproj", "{33BBE522-3366-483E-AB70-6585BBEE7FD1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cartographer.Example.Net8Api", "example\Cartographer.Example.Net8Api\Cartographer.Example.Net8Api.csproj", "{0E7EE9F5-D1FC-4359-B1B7-F5EFFCD43512}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,11 +44,16 @@ Global
 		{33BBE522-3366-483E-AB70-6585BBEE7FD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33BBE522-3366-483E-AB70-6585BBEE7FD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{33BBE522-3366-483E-AB70-6585BBEE7FD1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E7EE9F5-D1FC-4359-B1B7-F5EFFCD43512}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E7EE9F5-D1FC-4359-B1B7-F5EFFCD43512}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E7EE9F5-D1FC-4359-B1B7-F5EFFCD43512}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E7EE9F5-D1FC-4359-B1B7-F5EFFCD43512}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0F273D6F-6ABB-4A69-9608-4E0AA558C352} = {FFF09EBC-4784-4658-AA96-F1A801B84C0D}
 		{B51E1223-8023-4C04-9A47-E7EEF8EB1125} = {FFF09EBC-4784-4658-AA96-F1A801B84C0D}
 		{3C89F95D-90F6-4364-8C14-6A5A700D34DD} = {3AEE5864-4A87-49F4-92B4-8631DB927CB6}
 		{33BBE522-3366-483E-AB70-6585BBEE7FD1} = {FC3CD43B-508D-4489-8FC0-80AF7C8944B8}
+		{0E7EE9F5-D1FC-4359-B1B7-F5EFFCD43512} = {FC3CD43B-508D-4489-8FC0-80AF7C8944B8}
 	EndGlobalSection
 EndGlobal
