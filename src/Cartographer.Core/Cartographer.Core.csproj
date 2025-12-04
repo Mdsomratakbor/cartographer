@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Cartographer.Mapper</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>samrat_akbor</Authors>
     <Company>Cartographer</Company>
     <Description>AutoMapper-style object mapping library with profiles, fluent configuration, converters, inheritance support, and DI integration for .NET 8 and .NET 9.</Description>
