@@ -72,4 +72,4 @@ builder.Services.AddCartographer(cfg =>
 ## Package info
 - Package ID: `Cartographer.Mapper`
 - License: MIT
-- Repository: https://github.com/samrat-akbor/Cartographer
+- Repository: [CartoGrapher](https://github.com/Mdsomratakbor/cartographer)
