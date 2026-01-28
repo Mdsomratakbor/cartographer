@@ -5,15 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Cartographer.Mapper</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.1.3</Version>
     <Authors>samrat_akbor</Authors>
     <Company>Cartographer</Company>
     <Description>AutoMapper-style object mapping library with profiles, fluent configuration, converters, inheritance support, and DI integration for .NET 8 and .NET 9.</Description>
     <PackageTags>mapping;mapper;automapper;profiles;dotnet</PackageTags>
-    <RepositoryUrl>https://github.com/samrat-akbor/Cartographer</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Mdsomratakbor/cartographer</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>Repository: https://github.com/Mdsomratakbor/cartographer</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
