@@ -5,8 +5,8 @@ This document summarizes the current feature set, how it is implemented, and whe
 ## Projects
 - `src/Cartographer.Core`: Mapping engine, configuration, DI extensions.
 - `src/Cartographer.App`: Console sample showing hooks, conditional mapping, map-into-existing-instance, naming conventions.
-- `example/Cartographer.Example.Api`: .NET 9 Web API showcasing profiles, DI integration, inheritance (`Include`), global options, and in-memory services.
-- `example/Cartographer.Example.Net8Api`: .NET 8 Web API mirroring the feature set to verify multi-version support.
+- `example/Cartographer.Example.Api`: Multi-targeted .NET 10/9 Web API showcasing profiles, DI integration, inheritance (`Include`), global options, and in-memory services.
+- `example/Cartographer.Example.Net8Api`: Multi-targeted .NET 10/8 Web API mirroring the feature set to verify multi-version support.
 - `tests/Cartographer.Tests`: Unit tests covering mapping behavior, validation, converters, inheritance, collections, etc.
 
 ## Public API and Core Types
@@ -49,7 +49,7 @@ This document summarizes the current feature set, how it is implemented, and whe
 
 ## Sample Usage
 - Console sample (`src/Cartographer.App`) shows all major features (hooks, conditions, naming conventions, collection strategy, global options).
-- Example APIs (`example/...`) demonstrate DI integration, profile usage, inheritance, converters, and in-memory services for both .NET 9 and .NET 8.
+- Example APIs (`example/...`) demonstrate DI integration, profile usage, inheritance, converters, and in-memory services across .NET 10/9 and .NET 10/8 targets.
 
 ## Potential Future Enhancements
 - Open generic maps, projection support (`ProjectTo`), mapping-plan inspection, advanced DI integrations, packaging polish (NuGet metadata/README), and additional diagnostics tooling.

@@ -1,6 +1,6 @@
 # Cartographer.Mapper
 
-AutoMapper-style object mapper for .NET 8/9 with profiles, fluent configuration, converters, inheritance support, global options, and DI integration.
+AutoMapper-style object mapper for .NET 8/9/10 with profiles, fluent configuration, converters, inheritance support, global options, and DI integration.
 
 ## Install
 ```bash
@@ -63,13 +63,15 @@ builder.Services.AddCartographer(cfg =>
 - Map into existing instances.
 - Expression-compiled delegates for performance.
 - DI extensions with profile scanning.
-- Multi-target: net8.0 and net9.0.
+- Multi-target: net8.0, net9.0, and net10.0.
 
 ## Examples
 - Console sample: `src/Cartographer.App`.
-- Web APIs: `example/Cartographer.Example.Api` (net9) and `example/Cartographer.Example.Net8Api` (net8) with in-memory services/controllers showing DI + profiles + inheritance.
+- Web APIs: `example/Cartographer.Example.Api` (net10/net9) and `example/Cartographer.Example.Net8Api` (net10/net8) with in-memory services/controllers showing DI + profiles + inheritance.
 
 ## Package info
 - Package ID: `Cartographer.Mapper`
 - License: MIT
 - Repository: [CartoGrapher](https://github.com/Mdsomratakbor/cartographer)
+
+

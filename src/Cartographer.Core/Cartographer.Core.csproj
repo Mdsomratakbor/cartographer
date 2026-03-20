@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Cartographer.Mapper</PackageId>
     <Version>0.1.3</Version>
     <Authors>samrat_akbor</Authors>
     <Company>Cartographer</Company>
-    <Description>AutoMapper-style object mapping library with profiles, fluent configuration, converters, inheritance support, and DI integration for .NET 8 and .NET 9.</Description>
+    <Description>AutoMapper-style object mapping library with profiles, fluent configuration, converters, inheritance support, and DI integration for .NET 8, .NET 9, and .NET 10.</Description>
     <PackageTags>mapping;mapper;automapper;profiles;dotnet</PackageTags>
     <RepositoryUrl>https://github.com/Mdsomratakbor/cartographer</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -26,3 +26,5 @@
   </ItemGroup>
 
 </Project>
+
+
