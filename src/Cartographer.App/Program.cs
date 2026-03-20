@@ -105,7 +105,7 @@ internal class User
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public Address? Address { get; set; }
-    public IEnumerable<Order> Orders { get; set; } = Array.Empty<Order>();
+    public IEnumerable<Order>? Orders { get; set; } = Array.Empty<Order>();
     public bool IncludeNote { get; set; } = true;
     public string postal_code { get; set; } = string.Empty;
     public string AgeText { get; set; } = "37";
