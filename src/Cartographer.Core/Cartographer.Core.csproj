@@ -5,16 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Cartographer.Mapper</PackageId>
-    <Version>0.1.4</Version>
+    <Version>0.2.0</Version>
     <Authors>samrat_akbor</Authors>
     <Company>Cartographer</Company>
-    <Description>AutoMapper-style object mapping library with profiles, fluent configuration, converters, inheritance support, and DI integration for .NET 8, .NET 9, and .NET 10.</Description>
+    <Description>AutoMapper-style object mapping library with profiles, fluent configuration, converters, inheritance support, DI integration, mapping diagnostics/profiling, and plan inspection for .NET 8, .NET 9, and .NET 10.</Description>
     <PackageTags>mapping;mapper;automapper;profiles;dotnet</PackageTags>
     <RepositoryUrl>https://github.com/Mdsomratakbor/cartographer</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Repository: https://github.com/Mdsomratakbor/cartographer</PackageReleaseNotes>
+    <PackageReleaseNotes>https://github.com/Mdsomratakbor/cartographer/releases/tag/v0.2.0</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="" Link="README.md" />
+    <None Include="..\..\RELEASE_NOTES.md" Pack="true" PackagePath="" Link="RELEASE_NOTES.md" />
   </ItemGroup>
 
 </Project>
