@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>MappingBenchmarks-20260510-210013</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 10 (10.0.19045.6466/22H2/2022Update)
+Intel Core i3-7100 CPU 3.90GHz (Kaby Lake), 1 CPU, 4 logical and 2 physical cores
+.NET SDK 10.0.203
+  [Host]     : .NET 8.0.12 (8.0.12, 8.0.1224.60305), X64 RyuJIT x86-64-v3
+  DefaultJob : .NET 8.0.12 (8.0.12, 8.0.1224.60305), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method                     </th><th>Mean    </th><th>Error </th><th>StdDev </th><th>Median  </th><th>Gen0</th><th>Gen1</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Map_Simple</td><td>563.7 ns</td><td>54.30 ns</td><td>160.11 ns</td><td>514.7 ns</td><td>0.2346</td><td>-</td><td>368 B</td>
+</tr><tr><td>Map_Simple_Existing</td><td>441.8 ns</td><td>23.88 ns</td><td>64.57 ns</td><td>431.7 ns</td><td>0.1731</td><td>-</td><td>272 B</td>
+</tr><tr><td>Map_Nested</td><td>3,410.6 ns</td><td>224.93 ns</td><td>663.20 ns</td><td>3,665.3 ns</td><td>0.9613</td><td>-</td><td>1513 B</td>
+</tr><tr><td>Map_Converter</td><td>124.4 ns</td><td>7.07 ns</td><td>19.59 ns</td><td>118.5 ns</td><td>0.0815</td><td>-</td><td>128 B</td>
+</tr><tr><td>Map_Inheritance</td><td>507.1 ns</td><td>13.39 ns</td><td>37.56 ns</td><td>501.0 ns</td><td>0.2594</td><td>-</td><td>408 B</td>
+</tr><tr><td>Map_IncludeBase</td><td>369.9 ns</td><td>7.36 ns</td><td>19.89 ns</td><td>367.6 ns</td><td>0.1884</td><td>-</td><td>296 B</td>
+</tr><tr><td>Map_ReverseMap</td><td>114.1 ns</td><td>3.83 ns</td><td>11.05 ns</td><td>110.8 ns</td><td>0.0815</td><td>-</td><td>128 B</td>
+</tr><tr><td>Map_PreserveReferences_Cycle</td><td>459.9 ns</td><td>16.31 ns</td><td>46.53 ns</td><td>449.5 ns</td><td>0.3157</td><td>-</td><td>496 B</td>
+</tr><tr><td>Build_Mapper_With_ProfileScanning</td><td>1,257,399.2 ns</td><td>53,862.02 ns</td><td>157,967.98 ns</td><td>1,213,261.3 ns</td><td>19.5313</td><td>7.8125</td><td>35661 B</td>
+</tr></tbody></table>
+</body>
+</html>

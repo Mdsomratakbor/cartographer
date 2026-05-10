@@ -310,6 +310,121 @@ public class MapperTests
         dest.BaseValue.Should().Be("base");
         ((ChildDto)dest).ChildValue.Should().Be("child");
     }
+
+    [Fact]
+    public void ReverseMap_propagates_direct_member_mapfrom_and_ignore()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<ReverseNamedSource, ReverseNamedDestination>()
+                .ForMember(d => d.DisplayName, o => o.MapFrom(s => s.Name))
+                .ForMember(d => d.InternalOnly, o => o.Ignore())
+                .ReverseMap();
+        });
+
+        var mapper = config.CreateMapper();
+        var source = mapper.Map<ReverseNamedSource>(new ReverseNamedDestination
+        {
+            DisplayName = "Ada",
+            InternalOnly = "skip"
+        });
+
+        source.Name.Should().Be("Ada");
+        source.InternalOnly.Should().BeNull();
+    }
+
+    [Fact]
+    public void ReverseMap_propagates_direct_member_nested_map()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<ReverseChildSource, ReverseChildDestination>()
+                .ReverseMap();
+
+            cfg.CreateMap<ReverseContainerSource, ReverseContainerDestination>()
+                .ForMember(d => d.Payload, o => o.MapFrom(s => s.Child))
+                .ReverseMap();
+        });
+
+        var mapper = config.CreateMapper();
+        var source = mapper.Map<ReverseContainerSource>(new ReverseContainerDestination
+        {
+            Payload = new ReverseChildDestination { Value = "nested" }
+        });
+
+        source.Child.Should().NotBeNull();
+        source.Child!.Value.Should().Be("nested");
+    }
+
+    [Fact]
+    public void IncludeBase_inherits_member_configuration_and_hooks()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<IncludeBaseSource, IncludeBaseDestination>()
+                .ForMember(d => d.Renamed, o => o.MapFrom(s => s.Name))
+                .BeforeMap((s, d) => d.BaseBeforeCalled = true)
+                .AfterMap((s, d) => d.BaseAfterCalled = true);
+
+            cfg.CreateMap<IncludeBaseDerivedSource, IncludeBaseDerivedDestination>()
+                .IncludeBase<IncludeBaseSource, IncludeBaseDestination>();
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<IncludeBaseDerivedDestination>(new IncludeBaseDerivedSource
+        {
+            Name = "base",
+            Extra = "child"
+        });
+
+        dest.Renamed.Should().Be("base");
+        dest.Extra.Should().Be("child");
+        dest.BaseBeforeCalled.Should().BeTrue();
+        dest.BaseAfterCalled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IncludeBase_allows_derived_member_override()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<IncludeBaseSource, IncludeBaseDestination>()
+                .ForMember(d => d.Renamed, o => o.MapFrom(s => s.Name));
+
+            cfg.CreateMap<IncludeBaseDerivedSource, IncludeBaseDerivedDestination>()
+                .IncludeBase<IncludeBaseSource, IncludeBaseDestination>()
+                .ForMember(d => d.Renamed, o => o.MapFrom(s => s.OverrideName));
+        });
+
+        var mapper = config.CreateMapper();
+        var dest = mapper.Map<IncludeBaseDerivedDestination>(new IncludeBaseDerivedSource
+        {
+            Name = "base",
+            OverrideName = "derived"
+        });
+
+        dest.Renamed.Should().Be("derived");
+    }
+
+    [Fact]
+    public void PreserveReferences_handles_cyclic_graphs()
+    {
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.PreserveReferences = true;
+            cfg.CreateMap<CyclicNode, CyclicNodeDto>();
+        });
+
+        var mapper = config.CreateMapper();
+        var root = new CyclicNode { Name = "root" };
+        var child = new CyclicNode { Name = "child", Parent = root };
+        root.Child = child;
+
+        var dest = mapper.Map<CyclicNodeDto>(root);
+
+        dest.Child.Should().NotBeNull();
+        dest.Child!.Parent.Should().BeSameAs(dest);
+    }
 }
 
 file static class MapperTestExtensions
@@ -506,6 +621,61 @@ file class ChildDto : BaseDto
     public string ChildValue { get; set; } = string.Empty;
 }
 
+file class ReverseNamedSource
+{
+    public string? Name { get; set; }
+    public string? InternalOnly { get; set; }
+}
+
+file class ReverseNamedDestination
+{
+    public string? DisplayName { get; set; }
+    public string? InternalOnly { get; set; }
+}
+
+file class ReverseContainerSource
+{
+    public ReverseChildSource? Child { get; set; }
+}
+
+file class ReverseContainerDestination
+{
+    public ReverseChildDestination? Payload { get; set; }
+}
+
+file class ReverseChildSource
+{
+    public string Value { get; set; } = string.Empty;
+}
+
+file class ReverseChildDestination
+{
+    public string Value { get; set; } = string.Empty;
+}
+
+file class IncludeBaseSource
+{
+    public string Name { get; set; } = string.Empty;
+}
+
+file class IncludeBaseDestination
+{
+    public string Renamed { get; set; } = string.Empty;
+    public bool BaseBeforeCalled { get; set; }
+    public bool BaseAfterCalled { get; set; }
+}
+
+file class IncludeBaseDerivedSource : IncludeBaseSource
+{
+    public string Extra { get; set; } = string.Empty;
+    public string OverrideName { get; set; } = string.Empty;
+}
+
+file class IncludeBaseDerivedDestination : IncludeBaseDestination
+{
+    public string Extra { get; set; } = string.Empty;
+}
+
 file class DemoChild
 {
     public string Value { get; set; } = string.Empty;
@@ -514,4 +684,18 @@ file class DemoChild
 file class DemoChildDto
 {
     public string Value { get; set; } = string.Empty;
+}
+
+file class CyclicNode
+{
+    public string Name { get; set; } = string.Empty;
+    public CyclicNode? Parent { get; set; }
+    public CyclicNode? Child { get; set; }
+}
+
+file class CyclicNodeDto
+{
+    public string Name { get; set; } = string.Empty;
+    public CyclicNodeDto? Parent { get; set; }
+    public CyclicNodeDto? Child { get; set; }
 }

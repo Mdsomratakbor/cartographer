@@ -14,7 +14,19 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddCartographer(this IServiceCollection services, params Assembly[] assembliesWithProfiles)
     {
-        return services.AddCartographer(cfg => ApplyProfiles(cfg, assembliesWithProfiles));
+        return services.AddCartographer(static _ => { }, assembliesWithProfiles);
+    }
+
+    /// <summary>
+    /// Registers Cartographer using an explicit configuration action and profile scanning.
+    /// </summary>
+    public static IServiceCollection AddCartographer(this IServiceCollection services, Action<IMapperConfigurationExpression> configure, params Assembly[] assembliesWithProfiles)
+    {
+        return RegisterCartographer(services, (sp, cfg) =>
+        {
+            configure(cfg);
+            ApplyProfiles(cfg, sp, assembliesWithProfiles);
+        });
     }
 
     /// <summary>
@@ -22,13 +34,17 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddCartographer(this IServiceCollection services, Action<IMapperConfigurationExpression> configure)
     {
-        var config = new MapperConfiguration(configure);
-        services.AddSingleton(config);
-        services.AddSingleton<IMapper>(_ => config.CreateMapper());
+        return RegisterCartographer(services, (_, cfg) => configure(cfg));
+    }
+
+    private static IServiceCollection RegisterCartographer(IServiceCollection services, Action<IServiceProvider, IMapperConfigurationExpression> configure)
+    {
+        services.AddSingleton(sp => new MapperConfiguration(cfg => configure(sp, cfg)));
+        services.AddSingleton<IMapper>(sp => sp.GetRequiredService<MapperConfiguration>().CreateMapper());
         return services;
     }
 
-    private static void ApplyProfiles(IMapperConfigurationExpression cfg, Assembly[] assemblies)
+    private static void ApplyProfiles(IMapperConfigurationExpression cfg, IServiceProvider serviceProvider, Assembly[] assemblies)
     {
         var assembliesToScan = (assemblies is { Length: > 0 })
             ? assemblies
@@ -37,7 +53,7 @@ public static class ServiceCollectionExtensions
         var profiles = assembliesToScan
             .SelectMany(a => a.GetTypes())
             .Where(t => !t.IsAbstract && typeof(Profile).IsAssignableFrom(t))
-            .Select(t => (Profile)Activator.CreateInstance(t)!);
+            .Select(t => (Profile)ActivatorUtilities.CreateInstance(serviceProvider, t));
 
         foreach (var profile in profiles)
         {

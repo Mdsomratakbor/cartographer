@@ -33,6 +33,7 @@ public class InMemoryCustomerService : ICustomerService
 
         if (existing is Customer existingCustomer && person is Customer updatedCustomer)
         {
+            existingCustomer.CustomerCode = updatedCustomer.CustomerCode;
             existingCustomer.LoyaltyLevel = updatedCustomer.LoyaltyLevel;
             existingCustomer.Address = updatedCustomer.Address;
         }
@@ -51,6 +52,7 @@ public class InMemoryCustomerService : ICustomerService
             FirstName = "Ada",
             LastName = "Lovelace",
             Email = "ada@example.com",
+            CustomerCode = "CUST-1001",
             LoyaltyLevel = "Gold",
             Address = new Address { Line1 = "123 Logic Way", City = "London", Country = "UK", PostalCode = "SW1A1AA" }
         });
@@ -61,6 +63,7 @@ public class InMemoryCustomerService : ICustomerService
             FirstName = "Grace",
             LastName = "Hopper",
             Email = "grace@example.com",
+            CustomerCode = "VIP-2001",
             LoyaltyLevel = "Platinum",
             AccountManager = "Manager One",
             Address = new Address { Line1 = "456 Compiler St", City = "Arlington", Country = "USA", PostalCode = "22203" }

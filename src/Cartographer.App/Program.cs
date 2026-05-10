@@ -15,7 +15,16 @@ internal class Program
         using var provider = BuildServiceProvider();
         var mapper = provider.GetRequiredService<IMapper>();
         var configuration = provider.GetRequiredService<MapperConfiguration>();
-       // configuration.AssertConfigurationIsValid();
+        // configuration.AssertConfigurationIsValid();
+
+        var sharedFriend = new User
+        {
+            Id = Guid.NewGuid(),
+            FirstName = "Grace",
+            LastName = "Hopper",
+            Email = "grace@example.com",
+            Nickname = "AmazingGrace"
+        };
 
         var user = new User
         {
@@ -23,12 +32,15 @@ internal class Program
             FirstName = "Ada",
             LastName = "Lovelace",
             Email = "ada@example.com",
-            Friend = CreateFriendGraph(),
-            BestFriend = CreateFriendGraph(),
+            Nickname = "EnchantressOfNumbers",
+            Friend = sharedFriend,
+            BestFriend = sharedFriend,
             Address = new Address { Line1 = "123 Logic Way", City = "London" },
             postal_code = "90210",
             Orders = null
         };
+
+        sharedFriend.Friend = user;
 
         var dto = mapper.Map<UserDto>(user);
         BaseUser baseRef = new AdminUser
@@ -37,64 +49,51 @@ internal class Program
             FirstName = "Chief",
             LastName = "Architect",
             Email = "chief@example.com",
+            Nickname = "Builder",
             Title = "CTO"
         };
         var adminDto = mapper.Map<BaseUserDto>(baseRef);
 
         Console.WriteLine($"Mapped: {dto.DisplayName} ({dto.Email})");
+        Console.WriteLine($"Reverse-ready handle: {dto.Handle}");
         Console.WriteLine($"Address: {dto.Address?.Line1}, {dto.Address?.City}");
         Console.WriteLine($"Orders: {(dto.Orders.Any() ? string.Join(", ", dto.Orders.Select(o => $"{o.Sku} x{o.Quantity}")) : "<empty>")}");
         Console.WriteLine($"Conditional (PreCondition): {dto.OptionalNote ?? "<skipped>"}");
         Console.WriteLine($"Conditional (Condition): {dto.OptionalNote2 ?? "<skipped>"}");
         Console.WriteLine($"Hooks: Before={dto.BeforeHookCalled}, After={dto.AfterHookCalled}");
-        Console.WriteLine($"Friend: {dto.Friend?.DisplayName} (Friend.Friend null? {dto.Friend?.Friend is null})");
+        Console.WriteLine($"Friend: {dto.Friend?.DisplayName} (Cycle preserved to root? {ReferenceEquals(dto.Friend?.Friend, dto)})");
         Console.WriteLine($"PreserveReferences (BestFriend == Friend): {ReferenceEquals(dto.BestFriend, dto.Friend)}");
-        Console.WriteLine($"Inheritance: adminDto runtime type = {adminDto.GetType().Name}, Title={(adminDto as AdminUserDto)?.Title}");
+        Console.WriteLine($"Inheritance: adminDto runtime type = {adminDto.GetType().Name}, Display={adminDto.DisplayName}, Title={(adminDto as AdminUserDto)?.Title}");
 
         // Demonstrate mapping into an existing instance (patch/update scenario)
         var existingDto = new UserDto { DisplayName = "Existing Value" };
         mapper.Map(user, existingDto);
         Console.WriteLine($"Existing instance updated: {existingDto.DisplayName} ({existingDto.Email}) ({existingDto.Address?.Line1}) PostalCode={existingDto.PostalCode}");
+
+        var reverseMappedUser = mapper.Map<User>(new UserDto
+        {
+            Email = "reverse@example.com",
+            Handle = "ReverseHandle"
+        });
+        Console.WriteLine($"ReverseMap direct member propagation: Nickname={reverseMappedUser.Nickname ?? "<null>"} Email={reverseMappedUser.Email}");
     }
 
     private static ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();
+        services.AddSingleton<IUserDisplayFormatter, UserDisplayFormatter>();
 
-        // Registers Cartographer with naming conventions, global options, and profile scanning in this assembly
+        // Registers Cartographer with naming conventions, global options, and DI-created profile scanning in this assembly
         services.AddCartographer(cfg =>
         {
             cfg.SourceNamingConvention = new SnakeCaseNamingConvention();
             cfg.DestinationNamingConvention = new PascalCaseNamingConvention();
-            cfg.MaxDepth = 3;
+            cfg.MaxDepth = 4;
             cfg.PreserveReferences = true;
             cfg.NullCollectionStrategy = NullCollectionStrategy.UseEmptyCollection;
-            new UserProfile().Apply(cfg);
-        });
+        }, typeof(Program).Assembly);
 
         return services.BuildServiceProvider();
-    }
-
-    private static User CreateFriendGraph()
-    {
-        var friend = new User
-        {
-            Id = Guid.NewGuid(),
-            FirstName = "Grace",
-            LastName = "Hopper",
-            Email = "grace@example.com"
-        };
-
-        // This deeper friend will be trimmed by MaxDepth
-        friend.Friend = new User
-        {
-            Id = Guid.NewGuid(),
-            FirstName = "Deep",
-            LastName = "Friend",
-            Email = "deep@example.com"
-        };
-
-        return friend;
     }
 }
 
@@ -109,6 +108,7 @@ internal class User
     public bool IncludeNote { get; set; } = true;
     public string postal_code { get; set; } = string.Empty;
     public string AgeText { get; set; } = "37";
+    public string? Nickname { get; set; }
     public string IgnoredFromAttribute { get; set; } = "ShouldNotMap";
     public User? Friend { get; set; }
     public User? BestFriend { get; set; }
@@ -139,6 +139,7 @@ internal class UserDto
     public bool BeforeHookCalled { get; set; }
     public bool AfterHookCalled { get; set; }
     public string PostalCode { get; set; } = string.Empty;
+    public string? Handle { get; set; }
     public int Age { get; set; }
     [IgnoreMap]
     public string IgnoredFromAttribute { get; set; } = string.Empty;
@@ -178,11 +179,19 @@ internal class OrderDto
 
 internal class UserProfile : Profile
 {
+    private readonly IUserDisplayFormatter _displayFormatter;
+
+    public UserProfile(IUserDisplayFormatter displayFormatter)
+    {
+        _displayFormatter = displayFormatter;
+    }
+
     protected override void ConfigureMappings(IMapperConfigurationExpression cfg)
     {
         cfg.CreateMap<User, UserDto>()
-            .ForMember(d => d.DisplayName, o => o.MapFrom(s => $"{s.FirstName} {s.LastName}"))
+            .ForMember(d => d.DisplayName, o => o.MapFrom(s => _displayFormatter.Format(s.FirstName, s.LastName)))
             .ForMember(d => d.Age, o => o.ConvertUsing(new StringToIntConverter(), s => s.AgeText))
+            .ForMember(d => d.Handle, o => o.MapFrom(s => s.Nickname))
             .ForMember(d => d.OptionalNote, o =>
             {
                 o.PreCondition(s => s.IncludeNote);
@@ -198,9 +207,11 @@ internal class UserProfile : Profile
             .ReverseMap();
 
         cfg.CreateMap<BaseUser, BaseUserDto>()
+            .IncludeBase<User, UserDto>()
             .Include<AdminUser, AdminUserDto>();
 
-        cfg.CreateMap<AdminUser, AdminUserDto>();
+        cfg.CreateMap<AdminUser, AdminUserDto>()
+            .IncludeBase<BaseUser, BaseUserDto>();
 
         cfg.CreateMap<Address, AddressDto>()
             .ReverseMap();
@@ -223,4 +234,14 @@ internal class OrderTypeConverter : ITypeConverter<Order, OrderDto>
         Sku = source.Sku.ToUpperInvariant(),
         Quantity = source.Quantity
     };
+}
+
+internal interface IUserDisplayFormatter
+{
+    string Format(string firstName, string lastName);
+}
+
+internal sealed class UserDisplayFormatter : IUserDisplayFormatter
+{
+    public string Format(string firstName, string lastName) => $"{firstName} {lastName}";
 }

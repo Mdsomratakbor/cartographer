@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration.Naming;
@@ -19,6 +20,7 @@ public class MapperConfiguration : IMapperConfigurationExpression
     public int? MaxDepth { get; set; }
     public bool PreserveReferences { get; set; }
     public NullCollectionStrategy NullCollectionStrategy { get; set; } = NullCollectionStrategy.PreserveNull;
+    public bool EnableDiagnostics { get; set; }
 
     /// <summary>
     /// Creates a mapper configuration using the provided configuration action.
@@ -52,7 +54,9 @@ public class MapperConfiguration : IMapperConfigurationExpression
             PreserveReferences = PreserveReferences,
             NullCollectionStrategy = NullCollectionStrategy
         };
-        return new SimpleMapper(_maps, options);
+        var mapper = new SimpleMapper(_maps, options);
+        mapper.Diagnostics.Enabled = EnableDiagnostics;
+        return mapper;
     }
 
     /// <summary>
@@ -107,7 +111,7 @@ public class MapperConfiguration : IMapperConfigurationExpression
 
     internal TypeMap GetMap(Type source, Type dest) => _maps[(source, dest)];
 
-    private TypeMap GetOrCreate(Type src, Type dest)
+    internal TypeMap GetOrCreate(Type src, Type dest)
     {
         if (_maps.TryGetValue((src, dest), out var existing))
         {
@@ -121,6 +125,8 @@ public class MapperConfiguration : IMapperConfigurationExpression
 
     private void BuildConventionMaps()
     {
+        ApplyIncludedBaseMaps();
+
         foreach (var map in _maps.Values)
         {
             var destProps = map.DestinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -153,6 +159,7 @@ public class MapperConfiguration : IMapperConfigurationExpression
                 if (TryMatchByStrategy(destProp, srcProps.Values, out var strategyProp))
                 {
                     propertyMap.SourceProperty = strategyProp;
+                    propertyMap.SourceExpression = null;
                     continue;
                 }
 
@@ -160,12 +167,233 @@ public class MapperConfiguration : IMapperConfigurationExpression
                 if (normalizedSource.TryGetValue(normalizedDestName, out var sourceProp))
                 {
                     propertyMap.SourceProperty = sourceProp;
+                    propertyMap.SourceExpression = null;
                 }
             }
         }
     }
 
+    internal void ConfigureReverseMap(TypeMap forwardMap, TypeMap reverseMap)
+    {
+        ConfigureReverseMap(forwardMap, reverseMap, new HashSet<(Type Source, Type Destination)>());
+    }
+
     private bool HasDirectMap(Type source, Type dest) => _maps.ContainsKey((source, dest));
+
+    private void ConfigureReverseMap(TypeMap forwardMap, TypeMap reverseMap, HashSet<(Type Source, Type Destination)> visited)
+    {
+        if (!visited.Add((forwardMap.SourceType, forwardMap.DestinationType)))
+        {
+            return;
+        }
+
+        foreach (var propertyMap in forwardMap.PropertyMaps)
+        {
+            var reverseTarget = ResolveReverseTargetProperty(forwardMap, propertyMap);
+            if (reverseTarget == null)
+            {
+                continue;
+            }
+
+            var reversePropertyMap = FindOrAddPropertyMap(reverseMap, reverseTarget);
+
+            if (propertyMap.Ignore)
+            {
+                reversePropertyMap.Ignore = true;
+                continue;
+            }
+
+            if (propertyMap.ValueConverter != null)
+            {
+                continue;
+            }
+
+            if (reversePropertyMap.SourceExpression != null || reversePropertyMap.SourceProperty != null)
+            {
+                continue;
+            }
+
+            var reverseSourceExpression = BuildReverseSourceExpression(reverseMap.SourceType, propertyMap.DestinationProperty);
+            if (reverseSourceExpression == null)
+            {
+                continue;
+            }
+
+            reversePropertyMap.SourceExpression = reverseSourceExpression;
+            reversePropertyMap.SourceProperty = null;
+        }
+
+        if (forwardMap.IncludedBaseMap != null)
+        {
+            var reverseBaseMap = GetOrCreate(forwardMap.IncludedBaseMap.DestinationType, forwardMap.IncludedBaseMap.SourceType);
+            reverseMap.IncludedBaseMap = reverseBaseMap;
+
+            var derived = (reverseMap.SourceType, reverseMap.DestinationType);
+            if (!reverseBaseMap.DerivedTypes.Contains(derived))
+            {
+                reverseBaseMap.DerivedTypes.Add(derived);
+            }
+
+            ConfigureReverseMap(forwardMap.IncludedBaseMap, reverseBaseMap, visited);
+        }
+
+        foreach (var derived in forwardMap.DerivedTypes)
+        {
+            var reverseDerived = GetOrCreate(derived.Destination, derived.Source);
+            var reverseInclude = (derived.Destination, derived.Source);
+            if (!reverseMap.DerivedTypes.Contains(reverseInclude))
+            {
+                reverseMap.DerivedTypes.Add(reverseInclude);
+            }
+
+            if (_maps.TryGetValue((derived.Source, derived.Destination), out var derivedMap))
+            {
+                ConfigureReverseMap(derivedMap, reverseDerived, visited);
+            }
+        }
+    }
+
+    private void ApplyIncludedBaseMaps()
+    {
+        foreach (var map in _maps.Values)
+        {
+            ApplyIncludedBaseMap(map, new HashSet<TypeMap>());
+        }
+    }
+
+    private void ApplyIncludedBaseMap(TypeMap map, ISet<TypeMap> visited)
+    {
+        if (map.IncludedBaseMap == null || !visited.Add(map))
+        {
+            return;
+        }
+
+        ApplyIncludedBaseMap(map.IncludedBaseMap, visited);
+        MergeBaseMap(map, map.IncludedBaseMap);
+    }
+
+    private void MergeBaseMap(TypeMap map, TypeMap baseMap)
+    {
+        foreach (var basePropertyMap in baseMap.PropertyMaps)
+        {
+            var existing = map.PropertyMaps.FirstOrDefault(p => p.DestinationProperty.Name == basePropertyMap.DestinationProperty.Name);
+            if (existing == null)
+            {
+                map.PropertyMaps.Add(ClonePropertyMap(basePropertyMap));
+                continue;
+            }
+
+            MergePropertyMap(existing, basePropertyMap);
+        }
+
+        if (baseMap.BeforeMapAction != null)
+        {
+            map.BeforeMapAction = ComposeActions(baseMap.BeforeMapAction, map.BeforeMapAction);
+        }
+
+        if (baseMap.AfterMapAction != null)
+        {
+            map.AfterMapAction = ComposeActions(baseMap.AfterMapAction, map.AfterMapAction);
+        }
+    }
+
+    private static PropertyMap ClonePropertyMap(PropertyMap propertyMap)
+    {
+        return new PropertyMap(propertyMap.DestinationProperty)
+        {
+            SourceProperty = propertyMap.SourceProperty,
+            SourceExpression = propertyMap.SourceExpression,
+            Ignore = propertyMap.Ignore,
+            PreCondition = propertyMap.PreCondition,
+            Condition = propertyMap.Condition,
+            ValueConverter = propertyMap.ValueConverter,
+            ValueConverterSourceType = propertyMap.ValueConverterSourceType
+        };
+    }
+
+    private static void MergePropertyMap(PropertyMap target, PropertyMap source)
+    {
+        if (!target.Ignore
+            && target.SourceProperty == null
+            && target.SourceExpression == null
+            && target.PreCondition == null
+            && target.Condition == null
+            && target.ValueConverter == null)
+        {
+            target.Ignore = source.Ignore;
+        }
+
+        target.SourceProperty ??= source.SourceProperty;
+        target.SourceExpression ??= source.SourceExpression;
+        target.PreCondition ??= source.PreCondition;
+        target.Condition ??= source.Condition;
+        target.ValueConverter ??= source.ValueConverter;
+        target.ValueConverterSourceType ??= source.ValueConverterSourceType;
+    }
+
+    private static Action<object, object> ComposeActions(Action<object, object> first, Action<object, object>? second)
+    {
+        return second == null
+            ? first
+            : (src, dest) =>
+            {
+                first(src, dest);
+                second(src, dest);
+            };
+    }
+
+    private PropertyInfo? ResolveReverseTargetProperty(TypeMap forwardMap, PropertyMap propertyMap)
+    {
+        return GetDirectSourceProperty(propertyMap.SourceExpression)
+               ?? propertyMap.SourceProperty
+               ?? TryResolveSourceProperty(forwardMap.SourceType, propertyMap.DestinationProperty);
+    }
+
+    private static LambdaExpression? BuildReverseSourceExpression(Type reverseSourceType, PropertyInfo sourceProperty)
+    {
+        var sourceAccessor = reverseSourceType.GetProperty(sourceProperty.Name, BindingFlags.Public | BindingFlags.Instance);
+        if (sourceAccessor == null || !sourceAccessor.CanRead)
+        {
+            return null;
+        }
+
+        var sourceParameter = Expression.Parameter(reverseSourceType, "src");
+        var body = Expression.Property(sourceParameter, sourceAccessor);
+        return Expression.Lambda(body, sourceParameter);
+    }
+
+    private static PropertyInfo? GetDirectSourceProperty(LambdaExpression? sourceExpression)
+    {
+        if (sourceExpression?.Parameters.Count != 1)
+        {
+            return null;
+        }
+
+        var body = UnwrapConversion(sourceExpression.Body);
+        if (body is MemberExpression member
+            && member.Member is PropertyInfo property
+            && member.Expression == sourceExpression.Parameters[0])
+        {
+            return property;
+        }
+
+        return null;
+    }
+
+    private PropertyMap FindOrAddPropertyMap(TypeMap map, PropertyInfo destinationProperty)
+    {
+        var propertyMap = map.PropertyMaps.FirstOrDefault(p => p.DestinationProperty == destinationProperty)
+            ?? map.PropertyMaps.FirstOrDefault(p => p.DestinationProperty.Name == destinationProperty.Name);
+
+        if (propertyMap != null)
+        {
+            return propertyMap;
+        }
+
+        var created = new PropertyMap(destinationProperty);
+        map.PropertyMaps.Add(created);
+        return created;
+    }
 
     private bool TryValidateEnumerableMapping(Type sourceType, Type destinationType, out string? error)
     {
@@ -233,6 +461,39 @@ public class MapperConfiguration : IMapperConfigurationExpression
         return false;
     }
 
+    private PropertyInfo? TryResolveSourceProperty(Type sourceType, PropertyInfo destinationProperty)
+    {
+        var sourceProperties = sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanRead)
+            .ToDictionary(p => p.Name, p => p, StringComparer.Ordinal);
+
+        if (TryApplyAttributeLookup(destinationProperty, sourceProperties, out var attributed))
+        {
+            return attributed;
+        }
+
+        if (TryMatchByStrategy(destinationProperty, sourceProperties.Values, out var strategyProp))
+        {
+            return strategyProp;
+        }
+
+        var normalizedDestinationName = DestinationNamingConvention.Normalize(destinationProperty.Name);
+        return sourceProperties.Values.FirstOrDefault(p =>
+            string.Equals(SourceNamingConvention.Normalize(p.Name), normalizedDestinationName, StringComparison.Ordinal));
+    }
+
+    private static bool TryApplyAttributeLookup(PropertyInfo destinationProperty, IDictionary<string, PropertyInfo> sourceProperties, out PropertyInfo? sourceProperty)
+    {
+        var mapFrom = destinationProperty.GetCustomAttribute<MapFromAttribute>();
+        if (mapFrom != null && sourceProperties.TryGetValue(mapFrom.SourceMember, out sourceProperty))
+        {
+            return true;
+        }
+
+        sourceProperty = null;
+        return false;
+    }
+
     private bool TryApplyAttributes(PropertyMap propertyMap, IDictionary<string, PropertyInfo> srcProps)
     {
         var destProp = propertyMap.DestinationProperty;
@@ -254,5 +515,15 @@ public class MapperConfiguration : IMapperConfigurationExpression
         }
 
         return false;
+    }
+
+    private static Expression UnwrapConversion(Expression expression)
+    {
+        while (expression.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
+        {
+            expression = ((UnaryExpression)expression).Operand;
+        }
+
+        return expression;
     }
 }

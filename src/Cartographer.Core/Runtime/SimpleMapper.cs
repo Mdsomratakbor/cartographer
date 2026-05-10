@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Cartographer.Core.Abstractions;
 using Cartographer.Core.Configuration;
+using Cartographer.Core.Diagnostics;
 
 namespace Cartographer.Core.Runtime;
 
@@ -14,20 +17,17 @@ public class SimpleMapper : IMapper
     {
         _maps = maps;
         _options = options;
+        Diagnostics = new MappingDiagnostics();
     }
 
-    /// <summary>
-    /// Maps the given source object to a new destination instance of <typeparamref name="TDestination"/>.
-    /// </summary>
+    public MappingDiagnostics Diagnostics { get; }
+
     public TDestination Map<TDestination>(object source)
     {
         if (source == null) return default!;
         return (TDestination)Map(source, source.GetType(), typeof(TDestination));
     }
 
-    /// <summary>
-    /// Maps the given source object into an existing destination instance.
-    /// </summary>
     public TDestination Map<TDestination>(object source, TDestination destination)
     {
         if (source == null) return destination!;
@@ -45,17 +45,47 @@ public class SimpleMapper : IMapper
         }
 
         var context = new MappingContext(_options);
-        map.UpdateAction(source, destination!, this, context);
-        return destination!;
+
+        var start = Diagnostics.Enabled ? Stopwatch.GetTimestamp() : 0;
+        try
+        {
+            map.UpdateAction(source, destination!, this, context);
+            if (Diagnostics.Enabled)
+            {
+                var elapsed = Stopwatch.GetElapsedTime(start);
+                Diagnostics.Record(sourceType, destType, elapsed, true);
+            }
+            return destination!;
+        }
+        catch (Exception ex) when (Diagnostics.Enabled)
+        {
+            var elapsed = Stopwatch.GetElapsedTime(start);
+            Diagnostics.Record(sourceType, destType, elapsed, false, ex.Message);
+            throw;
+        }
     }
 
-    /// <summary>
-    /// Maps the given source object to a new destination instance of <paramref name="destinationType"/>.
-    /// </summary>
     public object Map(object source, Type sourceType, Type destinationType)
     {
         var context = new MappingContext(_options);
-        return MapInternal(source, sourceType, destinationType, context);
+
+        var start = Diagnostics.Enabled ? Stopwatch.GetTimestamp() : 0;
+        try
+        {
+            var result = MapInternal(source, sourceType, destinationType, context);
+            if (Diagnostics.Enabled)
+            {
+                var elapsed = Stopwatch.GetElapsedTime(start);
+                Diagnostics.Record(sourceType, destinationType, elapsed, true);
+            }
+            return result;
+        }
+        catch (Exception ex) when (Diagnostics.Enabled)
+        {
+            var elapsed = Stopwatch.GetElapsedTime(start);
+            Diagnostics.Record(sourceType, destinationType, elapsed, false, ex.Message);
+            throw;
+        }
     }
 
     internal object MapInternal(object source, Type sourceType, Type destinationType, MappingContext context)
@@ -85,15 +115,27 @@ public class SimpleMapper : IMapper
         return map.MappingFunc(source, this, context);
     }
 
+    public IReadOnlyList<TypeMapDescriptor> GetMappingPlans()
+    {
+        return _maps.Values.Select(map => new TypeMapDescriptor(
+            map.SourceType,
+            map.DestinationType,
+            map.PropertyMaps.Select(pm => new PropertyMapDescriptor(
+                pm.DestinationProperty,
+                pm.SourceProperty,
+                pm.SourceExpression?.ToString(),
+                pm.Ignore
+            )).ToList()
+        )).ToList();
+    }
+
     private (TypeMap Map, Type DestinationType)? ResolveTypeMap(Type runtimeSourceType, Type destinationType)
     {
-        // Exact match
         if (_maps.TryGetValue((runtimeSourceType, destinationType), out var exact))
         {
             return (exact, destinationType);
         }
 
-        // Look for a base map that includes derived types
         foreach (var kvp in _maps)
         {
             var key = kvp.Key;

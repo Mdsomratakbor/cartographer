@@ -33,6 +33,7 @@ public class InMemoryCustomerDirectory : ICustomerDirectory
 
         if (existing is Customer ec && person is Customer pc)
         {
+            ec.CustomerCode = pc.CustomerCode;
             ec.LoyaltyTier = pc.LoyaltyTier;
             ec.Address = pc.Address;
         }
@@ -46,6 +47,7 @@ public class InMemoryCustomerDirectory : ICustomerDirectory
             FirstName = "Ada",
             LastName = "Lovelace",
             Email = "ada@example.com",
+            CustomerCode = "CUST-3001",
             LoyaltyTier = "Gold",
             Address = new Address { Line1 = "123 Logic Way", City = "London", Country = "UK", PostalCode = "SW1A1AA" }
         });

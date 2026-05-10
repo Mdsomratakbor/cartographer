@@ -20,20 +20,33 @@ internal class TypeMapExpression<TSource, TDestination> : ITypeMapExpression<TSo
 
     public ITypeMapExpression<TDestination, TSource> ReverseMap()
     {
-        return _config.CreateMap<TDestination, TSource>();
+        var reverseMap = _config.GetOrCreate(typeof(TDestination), typeof(TSource));
+        _config.ConfigureReverseMap(_typeMap, reverseMap);
+        return new TypeMapExpression<TDestination, TSource>(reverseMap, _config);
     }
 
     public ITypeMapExpression<TSource, TDestination> Include<TDerivedSource, TDerivedDestination>() where TDerivedSource : TSource where TDerivedDestination : TDestination
     {
-        _typeMap.DerivedTypes.Add((typeof(TDerivedSource), typeof(TDerivedDestination)));
+        var derived = (typeof(TDerivedSource), typeof(TDerivedDestination));
+        if (!_typeMap.DerivedTypes.Contains(derived))
+        {
+            _typeMap.DerivedTypes.Add(derived);
+        }
+
         return this;
     }
 
-    public ITypeMapExpression<TSource, TDestination> IncludeBase<TBaseSource, TBaseDestination>() where TBaseSource : TSource where TBaseDestination : TDestination
+    public ITypeMapExpression<TSource, TDestination> IncludeBase<TBaseSource, TBaseDestination>()
     {
-        // For simplicity, treat IncludeBase as registering this map as derived of the base map.
-        var baseMap = _config.CreateMap<TBaseSource, TBaseDestination>() as TypeMapExpression<TBaseSource, TBaseDestination>;
-        baseMap?._typeMap.DerivedTypes.Add((typeof(TSource), typeof(TDestination)));
+        var baseMap = _config.GetOrCreate(typeof(TBaseSource), typeof(TBaseDestination));
+        _typeMap.IncludedBaseMap = baseMap;
+
+        var derived = (typeof(TSource), typeof(TDestination));
+        if (!baseMap.DerivedTypes.Contains(derived))
+        {
+            baseMap.DerivedTypes.Add(derived);
+        }
+
         return this;
     }
 

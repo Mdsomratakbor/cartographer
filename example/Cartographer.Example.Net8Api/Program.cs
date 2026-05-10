@@ -12,6 +12,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<ICustomerDirectory, InMemoryCustomerDirectory>();
 builder.Services.AddSingleton<IOrderBoard, InMemoryOrderBoard>();
+builder.Services.AddSingleton<IFullNameFormatter, FullNameFormatter>();
 
 builder.Services.AddCartographer(cfg =>
 {
@@ -20,8 +21,7 @@ builder.Services.AddCartographer(cfg =>
     cfg.MaxDepth = 2;
     cfg.PreserveReferences = true;
     cfg.NullCollectionStrategy = NullCollectionStrategy.UseEmptyCollection;
-    new ExampleProfile().Apply(cfg);
-});
+}, typeof(ExampleProfile).Assembly);
 
 var app = builder.Build();
 

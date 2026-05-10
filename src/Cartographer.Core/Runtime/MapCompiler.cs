@@ -37,6 +37,8 @@ internal class MapCompiler
         var mapperParam = Expression.Parameter(typeof(IMapper), "mapper");
         var contextParam = Expression.Parameter(typeof(MappingContext), "context");
         var mapsConst = Expression.Constant(_maps);
+        var trackMethod = typeof(MappingContext).GetMethod(nameof(MappingContext.Track))
+            ?? throw new InvalidOperationException("Missing MappingContext.Track.");
 
         var srcTyped = Expression.Variable(map.SourceType, "src");
         var destTyped = Expression.Variable(map.DestinationType, "dest");
@@ -54,6 +56,16 @@ internal class MapCompiler
             Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
             Expression.Assign(destTyped, Expression.New(map.DestinationType))
         };
+
+        if (!map.SourceType.IsValueType)
+        {
+            createExpressions.Add(
+                Expression.Call(
+                    contextParam,
+                    trackMethod,
+                    Expression.Convert(srcTyped, typeof(object)),
+                    Expression.Convert(destTyped, typeof(object))));
+        }
 
         if (map.BeforeMapAction != null)
         {
@@ -113,6 +125,16 @@ internal class MapCompiler
             Expression.Assign(destTypedUpdate, Expression.Convert(destObj, map.DestinationType))
         };
 
+        if (!map.SourceType.IsValueType)
+        {
+            updateExpressions.Add(
+                Expression.Call(
+                    contextParam,
+                    trackMethod,
+                    Expression.Convert(srcTyped, typeof(object)),
+                    Expression.Convert(destTypedUpdate, typeof(object))));
+        }
+
         if (map.BeforeMapAction != null)
         {
             updateExpressions.Add(Expression.Invoke(Expression.Constant(map.BeforeMapAction), srcTyped, destTypedUpdate));
@@ -167,18 +189,33 @@ internal class MapCompiler
         var converterObj = Expression.Constant(map.TypeConverter);
         var converterType = map.TypeConverter!.GetType();
         var convertMethod = converterType.GetMethod("Convert");
+        var trackMethod = typeof(MappingContext).GetMethod(nameof(MappingContext.Track))
+            ?? throw new InvalidOperationException("Missing MappingContext.Track.");
         if (convertMethod == null)
         {
             throw new InvalidOperationException("Type converter must have a Convert method.");
         }
 
+        var createResult = Expression.Variable(map.DestinationType, "converted");
         var createExpressions = new List<Expression>
         {
             Expression.Assign(srcTyped, Expression.Convert(sourceObj, map.SourceType)),
-            Expression.Call(converterObj, convertMethod, Expression.Convert(sourceObj, map.SourceType))
+            Expression.Assign(createResult, Expression.Call(converterObj, convertMethod, Expression.Convert(sourceObj, map.SourceType)))
         };
 
-        var createBody = Expression.Block(new[] { srcTyped }, createExpressions);
+        if (!map.SourceType.IsValueType)
+        {
+            createExpressions.Add(
+                Expression.Call(
+                    contextParam,
+                    trackMethod,
+                    Expression.Convert(srcTyped, typeof(object)),
+                    Expression.Convert(createResult, typeof(object))));
+        }
+
+        createExpressions.Add(createResult);
+
+        var createBody = Expression.Block(new[] { srcTyped, createResult }, createExpressions);
         var createLambda = Expression.Lambda<Func<object, IMapper, MappingContext, object>>(Expression.Convert(createBody, typeof(object)), sourceObj, mapperParam, contextParam);
 
         // Update: convert and copy properties to existing destination
@@ -193,6 +230,16 @@ internal class MapCompiler
             Expression.Assign(destTypedUpdate, Expression.Convert(destObj, map.DestinationType)),
             Expression.Assign(tempResult, Expression.Convert(converterCall, map.DestinationType))
         };
+
+        if (!map.SourceType.IsValueType)
+        {
+            updateExpressions.Add(
+                Expression.Call(
+                    contextParam,
+                    trackMethod,
+                    Expression.Convert(srcTyped, typeof(object)),
+                    Expression.Convert(destTypedUpdate, typeof(object))));
+        }
 
         foreach (var prop in map.DestinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite && p.CanRead))
         {
@@ -298,6 +345,11 @@ internal class MapCompiler
             return value;
         }
 
+        if (context.Options.PreserveReferences && context.TryGetReference(value, out var existing))
+        {
+            return existing;
+        }
+
         if (context.Options.MaxDepth.HasValue && (context.Depth + 1) > context.Options.MaxDepth.Value)
         {
             return null;
@@ -308,11 +360,6 @@ internal class MapCompiler
         if (destinationType.IsAssignableFrom(sourceType))
         {
             return value;
-        }
-
-        if (context.Options.PreserveReferences && context.TryGetReference(value, out var existing))
-        {
-            return existing;
         }
 
         if (maps.ContainsKey((sourceType, destinationType)))
@@ -335,51 +382,66 @@ internal class MapCompiler
         if (sourceElement != null && destinationElement != null && typeof(IEnumerable).IsAssignableFrom(sourceType))
         {
             var destListType = typeof(List<>).MakeGenericType(destinationElement);
-            var destList = (IList)Activator.CreateInstance(destListType)!;
-
-            foreach (var item in (IEnumerable)value)
-            {
-                var mappedItem = MapValue(item, sourceElement, destinationElement, mapper, maps, context);
-                destList.Add(mappedItem);
-            }
-
             if (destinationType.IsArray)
             {
-                var array = Array.CreateInstance(destinationElement, destList.Count);
-                destList.CopyTo(array, 0);
+                var arrayItems = (IList)Activator.CreateInstance(destListType)!;
+                foreach (var item in (IEnumerable)value)
+                {
+                    var mappedItem = MapValue(item, sourceElement, destinationElement, mapper, maps, context);
+                    arrayItems.Add(mappedItem);
+                }
+
+                var array = Array.CreateInstance(destinationElement, arrayItems.Count);
+                arrayItems.CopyTo(array, 0);
                 context.Track(value, array);
                 return array;
             }
 
             if (destinationType.IsAssignableFrom(destListType))
             {
-                context.Track(value, destList);
-                return destList;
+                var collectionItems = (IList)Activator.CreateInstance(destListType)!;
+                context.Track(value, collectionItems);
+                foreach (var item in (IEnumerable)value)
+                {
+                    var mappedItem = MapValue(item, sourceElement, destinationElement, mapper, maps, context);
+                    collectionItems.Add(mappedItem);
+                }
+
+                context.Track(value, collectionItems);
+                return collectionItems;
+            }
+
+            var addMethod = destinationType.GetMethod("Add", new[] { destinationElement });
+            var destinationInstance = addMethod != null ? Activator.CreateInstance(destinationType) : null;
+            if (destinationInstance != null && addMethod != null)
+            {
+                context.Track(value, destinationInstance);
+                foreach (var item in (IEnumerable)value)
+                {
+                    var mappedItem = MapValue(item, sourceElement, destinationElement, mapper, maps, context);
+                    addMethod.Invoke(destinationInstance, new[] { mappedItem });
+                }
+
+                return destinationInstance;
+            }
+
+            var bufferedItems = (IList)Activator.CreateInstance(destListType)!;
+            foreach (var item in (IEnumerable)value)
+            {
+                var mappedItem = MapValue(item, sourceElement, destinationElement, mapper, maps, context);
+                bufferedItems.Add(mappedItem);
             }
 
             var enumerableCtor = destinationType.GetConstructor(new[] { typeof(IEnumerable<>).MakeGenericType(destinationElement) });
             if (enumerableCtor != null)
             {
-                var constructed = enumerableCtor.Invoke(new object[] { destList });
+                var constructed = enumerableCtor.Invoke(new object[] { bufferedItems });
                 context.Track(value, constructed!);
                 return constructed;
             }
 
-            var destinationInstance = Activator.CreateInstance(destinationType);
-            var addMethod = destinationType.GetMethod("Add", new[] { destinationElement });
-            if (destinationInstance != null && addMethod != null)
-            {
-                foreach (var item in destList)
-                {
-                    addMethod.Invoke(destinationInstance, new[] { item });
-                }
-
-                context.Track(value, destinationInstance);
-                return destinationInstance;
-            }
-
-            context.Track(value, destList);
-            return destList;
+            context.Track(value, bufferedItems);
+            return bufferedItems;
         }
 
         return value;

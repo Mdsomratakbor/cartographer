@@ -3,12 +3,15 @@ namespace Cartographer.Example.Api.Models;
 public class PersonDto
 {
     public Guid Id { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 }
 
 public class CustomerDto : PersonDto
 {
+    public string ClientCode { get; set; } = string.Empty;
     public string LoyaltyLevel { get; set; } = string.Empty;
     public AddressDto? Address { get; set; }
 }

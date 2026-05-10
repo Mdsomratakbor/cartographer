@@ -10,6 +10,7 @@ public class Person
 
 public class Customer : Person
 {
+    public string CustomerCode { get; set; } = string.Empty;
     public string LoyaltyTier { get; set; } = "Standard";
     public Address? Address { get; set; }
 }

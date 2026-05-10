@@ -14,7 +14,7 @@ internal class MemberConfigurationExpression<TSource, TDestination, TMember> : I
         _propertyMap = propertyMap;
     }
 
-    public void MapFrom(Expression<Func<TSource, TMember>> sourceMember)
+    public void MapFrom(Expression<Func<TSource, object?>> sourceMember)
     {
         _propertyMap.SourceExpression = sourceMember;
     }

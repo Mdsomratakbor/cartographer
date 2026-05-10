@@ -68,8 +68,7 @@ public interface ITypeMapExpression<TSource, TDestination>
     /// <summary>
     /// Inherits mapping configuration from a base map.
     /// </summary>
-    ITypeMapExpression<TSource, TDestination> IncludeBase<TBaseSource, TBaseDestination>()
-        where TBaseSource : TSource where TBaseDestination : TDestination;
+    ITypeMapExpression<TSource, TDestination> IncludeBase<TBaseSource, TBaseDestination>();
 
     /// <summary>
     /// Configures mapping for a specific destination member.
@@ -104,7 +103,7 @@ public interface IMemberConfigurationExpression<TSource, TDestination, TMember>
     /// <summary>
     /// Specifies a custom source member expression used to populate the destination member.
     /// </summary>
-    void MapFrom(Expression<Func<TSource, TMember>> sourceMember);
+    void MapFrom(Expression<Func<TSource, object?>> sourceMember);
 
     /// <summary>
     /// Ignores this destination member during mapping.

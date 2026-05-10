@@ -17,6 +17,7 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<ICustomerService, InMemoryCustomerService>();
 builder.Services.AddSingleton<IOrderService, InMemoryOrderService>();
+builder.Services.AddSingleton<IFullNameFormatter, FullNameFormatter>();
 
 builder.Services.AddCartographer(cfg =>
 {
@@ -24,8 +25,7 @@ builder.Services.AddCartographer(cfg =>
     cfg.DestinationNamingConvention = new PascalCaseNamingConvention();
     cfg.NullCollectionStrategy = NullCollectionStrategy.UseEmptyCollection;
     cfg.PreserveReferences = true;
-    new ApiProfile().Apply(cfg);
-});
+}, typeof(ApiProfile).Assembly);
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
